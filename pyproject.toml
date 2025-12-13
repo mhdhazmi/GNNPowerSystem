@@ -1,0 +1,54 @@
+[project]
+name = "powergraph-gnn"
+version = "0.1.0"
+description = "Physics-guided GNN for power grid analytics using PowerGraph benchmark"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    # Core ML
+    "torch>=2.0",
+    "torch-geometric>=2.4",
+    # Scientific computing
+    "numpy>=1.24",
+    "scipy>=1.10",
+    "scikit-learn>=1.3",
+    # Experiment tracking & visualization
+    "tensorboard>=2.14",
+    "matplotlib>=3.7",
+    # Config & utilities
+    "pyyaml>=6.0",
+    "tqdm>=4.65",
+    # Data handling
+    "pandas>=2.0",
+    "mat73>=0.60",
+    "h5py>=3.9",
+]
+
+[project.scripts]
+smoke-test = "scripts.smoke_test:main"
+inspect-data = "scripts.inspect_dataset:main"
+train-cascade = "scripts.train_cascade:main"
+pgnn = "main:main"
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1",
+]
+experiment = [
+    "wandb>=0.15",
+    "optuna>=3.3",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src", "scripts", "main.py"]
+
+[tool.ruff]
+line-length = 100
+select = ["E", "F", "I", "N", "W"]
+ignore = ["E501"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"

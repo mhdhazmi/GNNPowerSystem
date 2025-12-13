@@ -1,0 +1,23 @@
+# Debug configuration for quick testing
+# Uses minimal settings to verify pipeline works
+
+_base_: base.yaml
+
+project:
+  name: debug-run
+
+data:
+  grid: ieee24
+
+model:
+  hidden_dim: 32
+  num_layers: 2
+  dropout: 0.0
+
+training:
+  epochs: 5
+  batch_size: 8
+  patience: 3
+
+logging:
+  log_every: 1

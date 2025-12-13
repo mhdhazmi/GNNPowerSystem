@@ -1,0 +1,62 @@
+# Base configuration for PowerGraph GNN experiments
+# Other configs can inherit from this using: _base_: base.yaml
+
+project:
+  name: powergraph-gnn
+  seed: 42
+  device: cuda  # cuda, mps, or cpu
+
+data:
+  root: ./data
+  grid: ieee24  # ieee24, ieee39, ieee118, uk
+  task: pf      # pf, opf, cascade, multitask
+  split_type: blocked  # blocked (temporal) or random
+  label_fraction: 1.0  # For low-label experiments: 0.1, 0.2, 0.5, 1.0
+
+model:
+  type: physics_guided  # physics_guided, gat, gcn, sage
+  hidden_dim: 128
+  num_layers: 4
+  dropout: 0.1
+  # Node/edge dimensions will be inferred from data
+
+training:
+  epochs: 100
+  batch_size: 32
+  lr: 1.0e-3
+  weight_decay: 1.0e-4
+  scheduler: cosine  # cosine, step, none
+  patience: 15  # Early stopping patience
+  gradient_clip: 1.0
+
+# Task-specific loss weights (for multi-task training)
+loss_weights:
+  pf: 1.0
+  opf: 1.0
+  cascade: 1.0
+
+# Physics regularization
+physics:
+  lambda_residual: 0.0  # Set > 0 to enable physics loss
+  residual_type: dc  # dc or ac
+
+# Self-supervised pretraining
+ssl:
+  enabled: false
+  method: combined  # injection, edge, combined
+  node_mask_ratio: 0.15
+  edge_mask_ratio: 0.10
+  pretrain_epochs: 100
+
+# Logging and checkpoints
+logging:
+  log_dir: ./outputs
+  tensorboard: true
+  log_every: 10
+  save_every: 10
+  keep_last_k: 3
+
+# Evaluation
+evaluation:
+  compute_physics_residual: true
+  compute_explanation_fidelity: false  # Enable for cascade task
