@@ -1,0 +1,15 @@
+\begin{table*}[t]
+\centering
+\caption{SSL Transfer Results Across Tasks and Label Fractions. Improvement shows relative gain of SSL pretraining over scratch training.}
+\label{tab:main_results}
+\begin{tabular}{ll|cccc|cccc}
+\toprule
+& & \multicolumn{4}{c|}{\textbf{Scratch}} & \multicolumn{4}{c}{\textbf{SSL Pretrained}} \\
+\textbf{Task} & \textbf{Metric} & 10\% & 20\% & 50\% & 100\% & 10\% & 20\% & 50\% & 100\% \\
+\midrule
+Cascade & F1 & 0.7575 & 0.8025 & 0.9023 & 0.9370 & 0.8828 & 0.9262 & 0.9536 & 0.9574 \\
+Power Flow & MAE & 0.0216 & 0.0157 & 0.0089 & 0.0056 & 0.0136 & 0.0104 & 0.0071 & 0.0047 \\
+OPF & MAE & 0.0141 & 0.0088 & 0.0052 & 0.0032 & 0.0096 & 0.0067 & 0.0041 & 0.0026 \\
+\bottomrule
+\end{tabular}
+\end{table*}

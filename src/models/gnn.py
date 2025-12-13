@@ -383,6 +383,7 @@ def cascade_loss(
     pred: Dict[str, torch.Tensor],
     target: torch.Tensor,
     class_weights: Optional[torch.Tensor] = None,
+    pos_weight: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, Dict[str, float]]:
     """
     Cascade classification loss.
@@ -391,6 +392,7 @@ def cascade_loss(
         pred: Model predictions with 'logits'
         target: Ground truth labels
         class_weights: Optional class weights for imbalanced data
+        pos_weight: Optional positive class weight for binary classification (for class imbalance)
 
     Returns:
         Total loss and breakdown
@@ -402,7 +404,7 @@ def cascade_loss(
         # Binary classification
         logits = logits.view(-1)
         target = target.view(-1).float()
-        loss = F.binary_cross_entropy_with_logits(logits, target, weight=class_weights)
+        loss = F.binary_cross_entropy_with_logits(logits, target, weight=class_weights, pos_weight=pos_weight)
     else:
         # Multi-class
         loss = F.cross_entropy(logits, target.long(), weight=class_weights)

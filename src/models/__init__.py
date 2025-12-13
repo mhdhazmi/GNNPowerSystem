@@ -9,6 +9,7 @@ from .gnn import (
     pf_loss,
 )
 from .heads import CascadeBinaryHead, CascadeHead, OPFHead, PowerFlowHead
+from .ssl import CombinedSSL, MaskedEdgeReconstruction, MaskedNodeReconstruction
 
 __all__ = [
     # Encoders
@@ -24,6 +25,10 @@ __all__ = [
     "PowerGraphGNN",
     "PFBaselineModel",
     "CascadeBaselineModel",
+    # SSL models
+    "MaskedNodeReconstruction",
+    "MaskedEdgeReconstruction",
+    "CombinedSSL",
     # Loss functions
     "pf_loss",
     "cascade_loss",

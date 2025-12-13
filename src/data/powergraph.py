@@ -68,7 +68,7 @@ class PowerGraphDataset(InMemoryDataset):
     """
 
     GRIDS = ["ieee24", "ieee39", "ieee118", "uk"]
-    TASKS = ["cascade"]  # PF/OPF to be added
+    TASKS = ["cascade", "pf", "opf"]  # PF=voltage prediction, OPF=flow prediction
     LABEL_TYPES = ["binary", "multiclass", "regression"]
 
     # Raw files expected per grid
@@ -297,7 +297,7 @@ class PowerGraphDataset(InMemoryDataset):
         for i in tqdm(range(num_samples), desc="Creating PyG graphs"):
             # Node features: [num_nodes, 3]
             # P_net, S_net, V
-            x = torch.tensor(
+            node_feat_full = torch.tensor(
                 raw_data["node_features"][i][0],
                 dtype=torch.float32
             ).reshape(-1, 3)
@@ -314,56 +314,84 @@ class PowerGraphDataset(InMemoryDataset):
             valid_mask = ~contingency_mask
 
             # Remove contingency edges
-            edge_attr = edge_feat_raw[valid_mask].reshape(-1, 4)
+            edge_attr_full = edge_feat_raw[valid_mask].reshape(-1, 4)
             edge_index = edge_index_base[valid_mask].reshape(-1, 2).T
 
             # Make bidirectional
             edge_index_rev = edge_index.flip(0)
             edge_index = torch.cat([edge_index, edge_index_rev], dim=1)
-            edge_attr = torch.cat([edge_attr, edge_attr], dim=0)
+            edge_attr_full = torch.cat([edge_attr_full, edge_attr_full], dim=0)
 
-            # Explanation mask
-            exp_raw = raw_data["explanations"][i][0]
-            exp_mask = torch.zeros(valid_mask.sum().item(), dtype=torch.float32)
-            if exp_raw is not None:
-                exp_arr = np.atleast_1d(exp_raw.astype(int) - 1)  # Ensure 1D
-                exp_indices = torch.tensor(exp_arr, dtype=torch.long)
-                # Filter to valid edges only
-                valid_indices = valid_mask.nonzero().squeeze(-1)
-                if valid_indices.dim() == 0:
-                    valid_indices = valid_indices.unsqueeze(0)
-                for idx in exp_indices:
-                    match = (valid_indices == idx.item()).nonzero()
-                    if len(match) > 0:
-                        exp_mask[match[0].item()] = 1.0
-            # Make bidirectional
-            exp_mask = torch.cat([exp_mask, exp_mask], dim=0)
+            # Task-specific features and labels
+            if self.task == "pf":
+                # PF task: predict voltage (V) from P_net, S_net
+                # Input: P_net, S_net (2 features)
+                # Target: V (voltage magnitude)
+                x = node_feat_full[:, :2]  # P_net, S_net only
+                y = node_feat_full[:, 2]   # V is the target
+                # Edge features: use X and rating only (no flow info, that's derived)
+                edge_attr = edge_attr_full[:, 2:4]  # X, rating
+                edge_mask = None
 
-            # Labels
-            if self.label_type == "binary":
-                y = torch.tensor(
-                    raw_data["labels_binary"][i][0],
-                    dtype=torch.float32
-                ).view(1)
-            elif self.label_type == "regression":
-                y = torch.tensor(
-                    raw_data["labels_regression"][i],
-                    dtype=torch.float32
-                ).view(1)
-            elif self.label_type == "multiclass":
-                y = torch.tensor(
-                    np.argmax(raw_data["labels_multiclass"][i][0]),
-                    dtype=torch.long
-                ).view(1)
+            elif self.task == "opf":
+                # OPF task: predict edge flows from node features
+                # Input: full node features (P_net, S_net, V)
+                # Target: P_flow, Q_flow on edges
+                x = node_feat_full  # All 3 node features
+                y = edge_attr_full[:, :2]  # P_flow, Q_flow as target
+                # Edge features: X, rating only (no flow info)
+                edge_attr = edge_attr_full[:, 2:4]  # X, rating
+                edge_mask = None
+
+            else:  # cascade task
+                x = node_feat_full
+                edge_attr = edge_attr_full
+
+                # Explanation mask
+                exp_raw = raw_data["explanations"][i][0]
+                exp_mask = torch.zeros(valid_mask.sum().item(), dtype=torch.float32)
+                if exp_raw is not None:
+                    exp_arr = np.atleast_1d(exp_raw.astype(int) - 1)  # Ensure 1D
+                    exp_indices = torch.tensor(exp_arr, dtype=torch.long)
+                    # Filter to valid edges only
+                    valid_indices = valid_mask.nonzero().squeeze(-1)
+                    if valid_indices.dim() == 0:
+                        valid_indices = valid_indices.unsqueeze(0)
+                    for idx in exp_indices:
+                        match = (valid_indices == idx.item()).nonzero()
+                        if len(match) > 0:
+                            exp_mask[match[0].item()] = 1.0
+                # Make bidirectional
+                edge_mask = torch.cat([exp_mask, exp_mask], dim=0)
+
+                # Labels
+                if self.label_type == "binary":
+                    y = torch.tensor(
+                        raw_data["labels_binary"][i][0],
+                        dtype=torch.float32
+                    ).view(1)
+                elif self.label_type == "regression":
+                    y = torch.tensor(
+                        raw_data["labels_regression"][i],
+                        dtype=torch.float32
+                    ).view(1)
+                elif self.label_type == "multiclass":
+                    y = torch.tensor(
+                        np.argmax(raw_data["labels_multiclass"][i][0]),
+                        dtype=torch.long
+                    ).view(1)
 
             data = Data(
                 x=x,
                 edge_index=edge_index.contiguous(),
                 edge_attr=edge_attr,
                 y=y,
-                edge_mask=exp_mask,
                 idx=i,
             )
+
+            # Add edge_mask only for cascade task
+            if edge_mask is not None:
+                data.edge_mask = edge_mask
 
             data_list.append(data)
 

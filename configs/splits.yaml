@@ -1,0 +1,68 @@
+# Dataset Split Configuration
+# These splits ensure reproducibility across all experiments
+
+# Global seed for all random operations
+global_seed: 42
+
+# Dataset configuration
+dataset:
+  name: ieee24
+  source: PowerGraph
+  license: CC BY 4.0
+
+# Split ratios
+splits:
+  train: 0.8
+  val: 0.1
+  test: 0.1
+
+# Sample counts (IEEE 24-bus cascade dataset)
+ieee24_cascade:
+  total_samples: 20157
+  train_samples: 16125
+  val_samples: 2016
+  test_samples: 2016
+  nodes_per_graph: 24
+  edges_per_graph: 68
+
+# Feature dimensions by task
+feature_dims:
+  cascade:
+    node_in_dim: 4   # P_net, S_net, V, status
+    edge_in_dim: 4   # X, rating, P_ij, loading
+  pf:
+    node_in_dim: 2   # P_net, S_net
+    edge_in_dim: 2   # X, rating
+  opf:
+    node_in_dim: 3   # P_net, S_net, V
+    edge_in_dim: 2   # X, rating
+
+# Label fractions for low-label experiments
+label_fractions:
+  - 0.1   # 1,612 training samples
+  - 0.2   # 3,225 training samples
+  - 0.5   # 8,062 training samples
+  - 1.0   # 16,125 training samples
+
+# SSL pretraining configuration
+ssl:
+  mask_ratio: 0.15
+  mask_token_prob: 0.8    # BERT-style: 80% mask token
+  random_token_prob: 0.1  # 10% random
+  unchanged_prob: 0.1     # 10% unchanged
+
+# Training configuration
+training:
+  epochs: 50
+  batch_size: 64
+  learning_rate: 0.001
+  weight_decay: 0.0001
+  optimizer: AdamW
+  scheduler: CosineAnnealingLR
+
+# Model configuration
+model:
+  hidden_dim: 128
+  num_layers: 4
+  dropout: 0.1
+  encoder: PhysicsGuidedEncoder
