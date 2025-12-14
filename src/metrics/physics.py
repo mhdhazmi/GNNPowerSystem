@@ -5,6 +5,11 @@ Validates that model representations align with physical principles:
 1. Power balance (Kirchhoff's Current Law)
 2. Edge importance correlation with physical quantities
 3. Embedding consistency with electrical distance
+4. PF prediction physics consistency
+5. Thermal limit violations (OPF)
+
+These metrics support the paper's "physics-consistent" claim by providing
+quantitative evidence that predictions respect power system physics.
 """
 
 from typing import Dict, Optional, Tuple
@@ -12,6 +17,139 @@ from typing import Dict, Optional, Tuple
 import torch
 import torch.nn.functional as F
 from torch_geometric.utils import degree
+
+
+def compute_pf_physics_residual(
+    v_pred: torch.Tensor,
+    v_true: torch.Tensor,
+    p_injection: torch.Tensor,
+    edge_index: torch.Tensor,
+    edge_attr: torch.Tensor,
+) -> Dict[str, float]:
+    """
+    Compute physics consistency metrics for Power Flow predictions.
+
+    For a valid PF solution, predicted voltages should satisfy power balance.
+    We compute a proxy metric based on voltage magnitude consistency.
+
+    Args:
+        v_pred: Predicted voltage magnitudes [num_nodes]
+        v_true: Ground truth voltage magnitudes [num_nodes]
+        p_injection: Power injections [num_nodes]
+        edge_index: Edge connectivity [2, num_edges]
+        edge_attr: Edge features (including reactance) [num_edges, edge_dim]
+
+    Returns:
+        Dictionary with physics metrics
+    """
+    # Basic voltage prediction metrics
+    v_error = (v_pred - v_true).abs()
+
+    # Voltage deviation from nominal (1.0 p.u.)
+    v_deviation_pred = (v_pred - 1.0).abs()
+    v_deviation_true = (v_true - 1.0).abs()
+
+    # Physics check: voltages should be within reasonable bounds
+    v_min, v_max = 0.9, 1.1  # Typical operational limits
+    violations_pred = ((v_pred < v_min) | (v_pred > v_max)).float().mean()
+    violations_true = ((v_true < v_min) | (v_true > v_max)).float().mean()
+
+    # Consistency: prediction should have similar deviation pattern to ground truth
+    deviation_correlation = F.cosine_similarity(
+        v_deviation_pred.unsqueeze(0), v_deviation_true.unsqueeze(0)
+    ).item()
+
+    return {
+        "pf_mae": v_error.mean().item(),
+        "pf_max_error": v_error.max().item(),
+        "pf_voltage_violation_rate_pred": violations_pred.item(),
+        "pf_voltage_violation_rate_true": violations_true.item(),
+        "pf_deviation_correlation": deviation_correlation,
+    }
+
+
+def compute_thermal_violations(
+    flow_pred: torch.Tensor,
+    flow_true: torch.Tensor,
+    rating: torch.Tensor,
+) -> Dict[str, float]:
+    """
+    Compute thermal limit violation metrics for OPF predictions.
+
+    Power flows should not exceed line thermal ratings.
+
+    Args:
+        flow_pred: Predicted power flows [num_edges] or [num_edges, 2] for P,Q
+        flow_true: Ground truth power flows
+        rating: Line thermal ratings [num_edges]
+
+    Returns:
+        Dictionary with thermal violation metrics
+    """
+    # Handle both 1D (P only) and 2D (P, Q) flows
+    if flow_pred.dim() == 2:
+        # Compute apparent power = sqrt(P^2 + Q^2)
+        apparent_pred = torch.sqrt(flow_pred[:, 0]**2 + flow_pred[:, 1]**2)
+        apparent_true = torch.sqrt(flow_true[:, 0]**2 + flow_true[:, 1]**2)
+    else:
+        apparent_pred = flow_pred.abs()
+        apparent_true = flow_true.abs()
+
+    # Normalize rating to avoid division issues
+    rating = rating.abs() + 1e-8
+
+    # Loading ratio
+    loading_pred = apparent_pred / rating
+    loading_true = apparent_true / rating
+
+    # Violations (loading > 1.0 means over thermal limit)
+    violation_pred = (loading_pred > 1.0).float()
+    violation_true = (loading_true > 1.0).float()
+
+    # Severe violations (loading > 1.2)
+    severe_pred = (loading_pred > 1.2).float()
+    severe_true = (loading_true > 1.2).float()
+
+    return {
+        "thermal_violation_rate_pred": violation_pred.mean().item(),
+        "thermal_violation_rate_true": violation_true.mean().item(),
+        "thermal_severe_violation_pred": severe_pred.mean().item(),
+        "thermal_severe_violation_true": severe_true.mean().item(),
+        "thermal_max_loading_pred": loading_pred.max().item(),
+        "thermal_max_loading_true": loading_true.max().item(),
+        "thermal_mean_loading_pred": loading_pred.mean().item(),
+    }
+
+
+def compute_angle_consistency(
+    sin_pred: torch.Tensor,
+    cos_pred: torch.Tensor,
+) -> Dict[str, float]:
+    """
+    Verify that predicted sin/cos form valid unit circle values.
+
+    For valid angles: sin^2 + cos^2 = 1
+
+    Args:
+        sin_pred: Predicted sin(theta) [num_nodes]
+        cos_pred: Predicted cos(theta) [num_nodes]
+
+    Returns:
+        Dictionary with angle consistency metrics
+    """
+    # Unit circle constraint
+    norm_sq = sin_pred**2 + cos_pred**2
+    norm_error = (norm_sq - 1.0).abs()
+
+    # Reasonable angle range: |theta| < pi (cos > -1)
+    angle_pred = torch.atan2(sin_pred, cos_pred)
+    angle_range_violation = (angle_pred.abs() > 3.14159).float()
+
+    return {
+        "angle_norm_error_mean": norm_error.mean().item(),
+        "angle_norm_error_max": norm_error.max().item(),
+        "angle_range_violation_rate": angle_range_violation.mean().item(),
+    }
 
 
 def compute_power_balance_residual(

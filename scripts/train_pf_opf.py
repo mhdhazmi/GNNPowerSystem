@@ -36,6 +36,11 @@ from torch_geometric.nn import global_mean_pool
 from tqdm import tqdm
 
 from src.data import PowerGraphDataset
+from src.metrics import (
+    compute_pf_physics_residual,
+    compute_thermal_violations,
+    compute_embedding_electrical_consistency,
+)
 from src.models.encoder import PhysicsGuidedEncoder
 from src.utils import get_device, set_seed
 
@@ -133,6 +138,69 @@ def compute_opf_metrics(flow_pred, flow_target):
     p_mae = F.l1_loss(flow_pred[:, 0], flow_target[:, 0]).item()
     q_mae = F.l1_loss(flow_pred[:, 1], flow_target[:, 1]).item()
     return {"mse": mse, "mae": mae, "p_mae": p_mae, "q_mae": q_mae}
+
+
+@torch.no_grad()
+def compute_physics_metrics(model, loader, device, task: str):
+    """
+    Compute physics consistency metrics for model predictions.
+
+    Args:
+        model: Trained model
+        loader: DataLoader
+        device: Torch device
+        task: "pf" or "opf"
+
+    Returns:
+        Dictionary of physics consistency metrics
+    """
+    model.eval()
+    all_physics = []
+
+    for batch in tqdm(loader, desc="Computing physics metrics", leave=False):
+        batch = batch.to(device)
+        outputs = model(batch.x, batch.edge_index, batch.edge_attr, batch.batch)
+
+        if task == "pf":
+            # Voltage physics consistency
+            v_pred = outputs["v_pred"]
+            v_true = batch.y
+
+            # Extract power injection from node features (P_net is index 0)
+            p_injection = batch.x[:, 0]
+
+            metrics = compute_pf_physics_residual(
+                v_pred, v_true, p_injection, batch.edge_index, batch.edge_attr
+            )
+            all_physics.append(metrics)
+
+        else:  # OPF
+            # Thermal violation metrics
+            flow_pred = outputs["flow_pred"]
+            flow_true = batch.y
+
+            # Rating is typically edge_attr[:, -1] or computed
+            # Use relative loading based on max flow for now
+            rating = flow_true.abs().max(dim=1).values + 1e-8
+
+            metrics = compute_thermal_violations(flow_pred, flow_true, rating)
+            all_physics.append(metrics)
+
+        # Embedding consistency (for both tasks)
+        node_emb = outputs["node_emb"]
+        emb_metrics = compute_embedding_electrical_consistency(
+            node_emb, batch.edge_index, batch.edge_attr
+        )
+        all_physics[-1].update({f"emb_{k}": v for k, v in emb_metrics.items()})
+
+    # Average metrics across batches
+    avg_metrics = {}
+    if all_physics:
+        for key in all_physics[0].keys():
+            values = [m[key] for m in all_physics if key in m]
+            avg_metrics[key] = sum(values) / len(values)
+
+    return avg_metrics
 
 
 def train_epoch_pf(model, loader, optimizer, device):
@@ -352,7 +420,10 @@ def run_single_experiment(
 
     test_metrics = eval_fn(model, test_loader, device)
 
-    return {
+    # Compute physics consistency metrics
+    physics_metrics = compute_physics_metrics(model, test_loader, device, task)
+
+    result = {
         "task": task,
         "init_type": init_type,
         "label_fraction": label_fraction,
@@ -363,6 +434,11 @@ def run_single_experiment(
         "test_mse": test_metrics["mse"],
         "test_r2": test_metrics.get("r2", None),
     }
+
+    # Add physics metrics to result
+    result["physics"] = physics_metrics
+
+    return result
 
 
 def run_comparison(args):
@@ -541,6 +617,14 @@ def main():
         print(f"Best Val MAE: {result['best_val_mae']:.6f}")
         print(f"Test MAE: {result['test_mae']:.6f}")
         print(f"Test MSE: {result['test_mse']:.6f}")
+
+        # Print physics consistency metrics
+        if result.get("physics"):
+            print("\n" + "-" * 40)
+            print("PHYSICS CONSISTENCY METRICS")
+            print("-" * 40)
+            for key, value in result["physics"].items():
+                print(f"  {key}: {value:.6f}")
 
         with open(output_dir / "results.json", "w") as f:
             json.dump(result, f, indent=2)

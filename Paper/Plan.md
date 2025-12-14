@@ -696,3 +696,570 @@ If you want, paste what you currently implemented for WP2 (model type, targets, 
 
 [1]: https://github.com/PowerGraph-Datasets/PowerGraph-Graph "GitHub - PowerGraph-Datasets/PowerGraph-Graph"
 [2]: https://arxiv.org/html/2402.02827 "PowerGraph: A power grid benchmark dataset for graph neural networks"
+
+
+
+
+# Peer Review Results:
+Thanks for sharing this — the write‑up is structured like a paper-ready internal report, and the results (at least **PF/OPF**) look directionally plausible. But there are **several “reviewer‑blocking” validity risks** in the current report that you should address *before* you treat it as publishable.
+
+Below is a candid, paper‑review style critique.
+
+---
+
+## What looks strong / encouraging
+
+### 1) The low‑label pattern is coherent
+
+Your PF and OPF results show the “SSL helps most at low labels, still helps at full labels” pattern, which is exactly what you’d expect from a useful representation learner: PF MAE improvement at 10% is reported as **+37.1%**, and OPF MAE improvement at 10% as **+32.2%**.  
+This is a real strength: it’s a clean, testable claim and it matches the intuition for SSL.
+
+### 2) You have an OOD axis (load scaling)
+
+The OOD test (load multiplier) is a good first robustness probe and shows a widening gap (e.g., at 1.3× load, **0.743 → 0.907 F1**). 
+This supports the “SSL helps under distribution shift” portion of your claim. 
+
+### 3) You’re explicitly testing explanation fidelity
+
+You report explanation AUC‑ROC up to **0.93** using Integrated Gradients with a defined protocol. 
+Having *any* quantitative explainability check is a plus, because many papers only show qualitative saliency plots.
+
+---
+
+## Major threats to validity (these are “publication blockers” as written)
+
+### A) **Potential label leakage in SSL (and possibly even in the supervised setup)**
+
+This is the biggest issue.
+
+Your report explicitly says SSL pretraining masks and reconstructs **node voltage features**:
+
+* “Mask 15% of node voltage features … objective: reconstruct original voltage from power injections” 
+
+And for OPF SSL it masks and reconstructs **edge flow features**:
+
+* “Mask 15% of edge flow features … objective: reconstruct edge flows …” 
+
+Also, your architecture description lists inputs that include **V** and even **flow/loading**:
+
+* “Input: Node features (P, Q, V, status) + Edge features (X, rating, flow, loading)” 
+
+**Why this is dangerous:**
+If PF’s downstream target includes voltages, and OPF/cascade targets relate to flows, then using voltages/flows in pretraining (or as inputs) can turn “self-supervised” into “denoising the labels” (or worse, direct leakage). A reviewer will ask:
+
+* *Are voltages/flows actually observable at inference?*
+* *If not, aren’t you pretraining on the supervised targets and then claiming label efficiency?*
+
+**How to fix (two valid options):**
+
+1. **Reframe the downstream task** as *state estimation / imputation* where voltages and/or flows are *partially observed measurements*. Then the SSL objective is valid because the features exist in the real input stream.
+2. **Or** redesign SSL so it *never touches target variables* (recommended if your story is “unlabeled topology + injections”):
+
+   * mask **injections** (P/Q), generator setpoints, topology indicators, line parameters (X, rating), etc.
+   * pretrain reconstruction only on **truly available** variables.
+
+Right now, your report claims SSL learns “without labeled solutions” , but the described SSL objectives strongly resemble using the solution variables themselves.
+
+**Verdict on this point:** until you clarify/fix this, the core claim is vulnerable.
+
+---
+
+### B) **Cascade (IEEE‑24) numbers in the report do not match the plotted figure**
+
+Your report table says cascade (IEEE‑24) scratch/SSL at 10% labels is **0.812/0.946** 
+But the figure you shared for IEEE‑24 shows roughly **0.758/0.883** at 10% labels (still +16.5%, but different absolute values).
+
+This inconsistency is *very* damaging in peer review. It creates immediate doubt about:
+
+* which experiment is being reported,
+* whether the split/seed changed,
+* or whether there’s a metric mismatch.
+
+**Fix:** regenerate **all tables from the same `results.json` logs** used to make the figures, and remove all hand‑typed numbers from the manuscript/report.
+
+---
+
+### C) IEEE‑118 “scratch fails” story is not yet defensible
+
+Your report claims scratch predicts all negatives under 5% positive rate and gets **F1 ≈ 0.10** .
+
+But if a model predicts *all negatives*, the **positive-class F1 is 0**, not ~0.10.
+An F1 around 0.10 is actually consistent with **predicting all positives** when prevalence is ~5% (precision ≈ 0.05, recall ≈ 1 → F1 ≈ 0.095). So the narrative is likely wrong *or* the metric isn’t what you think it is.
+
+Also, “scratch fails regardless of label fraction”  is the kind of result reviewers often interpret as:
+
+* training bug,
+* thresholding bug,
+* or class-imbalance mishandling (loss weights, sampler, metric definition).
+
+**What you must add to make IEEE‑118 publishable:**
+
+* Confusion matrix at each label fraction (or at least for 100%)
+* Precision, Recall, **PR‑AUC** (more appropriate under heavy imbalance)
+* Clarify: is F1 macro, micro, weighted, or positive-class F1?
+* Show threshold selection method (fixed 0.5 vs tuned on validation)
+* Strengthen the scratch baseline with a fair imbalance strategy (e.g., class-weighted BCE, focal loss, or rebalancing) and report that as the “best scratch” baseline.
+
+Until then, “SSL is required for learning”  is too strong and will be attacked.
+
+---
+
+### D) Single seed is not enough for a paper claim
+
+You explicitly run a single fixed seed (42)  and state “full reproducibility” .
+
+Reproducibility is good, but **single-seed results are not statistically convincing** for publication, especially when you’re claiming large improvements and “scratch fails” regimes.
+
+**Minimum publishable standard:** run at least **3–5 seeds** and report mean ± std (and ideally a simple paired test over seeds).
+
+---
+
+### E) The “physics-guided” claim isn’t backed by a physics metric in the results section
+
+You repeatedly position this as “physics-guided” and “physics-consistent” , but the results shown are:
+
+* PF/OPF MAE and R² 
+* Cascade F1 
+* Explanation AUC 
+
+Those are great *ML metrics*, but you need at least one **physics consistency** metric to justify the “physics-consistent” adjective. Examples:
+
+* power balance / KCL mismatch proxy
+* thermal limit violation rate (if predicting flows)
+* constraint residual statistics on PF/OPF outputs
+
+Otherwise, reviewers will say “physics-guided is just a feature weighting trick.”
+
+---
+
+## Minor issues (easy fixes but should be cleaned up)
+
+### 1) The cross-task “normalized performance” plot is misleading
+
+Your `multi_task_comparison.png` mixes MAE (lower is better) and F1 (higher is better) under one axis. It ends up visually implying scratch is “better” on PF/OPF because it’s at 1.0, but that 1.0 is actually **worst** if it’s MAE-normalized.
+
+Fix: either invert MAE (e.g., 1/MAE normalized), or use two panels (error metrics vs score metrics).
+
+### 2) WP summary has ambiguous “AUC 0.93”
+
+Your WP table says “Physics-guided > vanilla (AUC 0.93)” , but AUC is later used for explainability. 
+Clarify what that WP3 AUC refers to.
+
+---
+
+## What I would require before calling it “publishable”
+
+If you do **only these 6 items**, you’ll be in much safer territory:
+
+1. **Resolve label leakage / define observability clearly**
+
+   * Either redesign SSL to avoid voltages/flows, or reframe tasks as partial-observation estimation where those features exist at inference.
+
+2. **Regenerate all numbers directly from logs**
+
+   * Fix the cascade IEEE‑24 table vs figure mismatch.
+
+3. **Multi-seed evaluation**
+
+   * 3–5 seeds, mean±std, at least for the headline results (10% and 100%, IEEE‑24 and IEEE‑118).
+
+4. **Fix IEEE‑118 evaluation rigor**
+
+   * Report PR‑AUC, precision, recall, confusion matrix.
+   * Clarify F1 definition and thresholding.
+   * Strengthen scratch baseline to a fair “best scratch” with imbalance handling.
+
+5. **Add at least one physics consistency metric**
+
+   * Report it for PF/OPF; show SSL/physics-guided doesn’t worsen physics residuals.
+
+6. **Ablations**
+
+   * SSL vs scratch (you have)
+   * physics-guided vs vanilla (need clearly shown)
+   * edge-aware backbone vs plain GCN (or a known strong baseline)
+
+---
+
+## Do I need the repo?
+
+I **don’t need the repo** to point out the validity risks above — they’re already implied by the report text and the plots.
+
+But if you want me to give a *high-confidence* review (the kind you’d do before submitting to IEEE TPS / TSTE), then yes: the repo would let me verify:
+
+* what features are actually used as inputs per task,
+* whether SSL pretraining sees validation/test graphs,
+* how F1 is computed,
+* and whether IEEE‑118 scratch collapse is a metric/thresholding artifact.
+
+
+# Peer Review Second Results:
+Thanks — these updated results are **much stronger than the initial progress report** in terms of *scientific credibility*, mainly because you’ve added **multi‑seed validation** and an **encoder ablation**. That said, there are still a few **serious “reviewer-stopper” issues** you should fix before you call this “publish-ready”.
+
+Below is a structured critique + a clear verdict.
+
+---
+
+## What’s strong and publication-relevant now
+
+### 1) The core empirical story is coherent
+
+Across PF and OPF you show the expected SSL behavior: **biggest gains in low‑label regimes**, diminishing but still present at 100% labels.
+
+* PF (ieee24): MAE improves from **0.0216 → 0.0136** at 10% labels (**+37.1%**) and still improves at 100% labels (**+15.1%**). 
+* OPF (ieee24): MAE improves from **0.0141 → 0.0096** at 10% labels (**+32.2%**), and improves across all label fractions. 
+
+This pattern is exactly what you’d want reviewers to see for “label efficiency via SSL”.
+
+### 2) Multi-seed validation (good move)
+
+You now report **mean ± std over 3 seeds** for cascade on ieee24, which substantially increases validity.
+
+* Example: 10% labels: **0.7528 ± 0.0291 → 0.8599 ± 0.0117** (**+14.2%**) 
+
+This is a *big credibility step up*.
+
+### 3) Ablation adds technical legitimacy
+
+You added a meaningful ablation showing that **edge-awareness matters** and that “plain GCN” underperforms in the hardest regime:
+
+* Standard GCN F1 at 10% labels is **0.5980** vs PhysicsGuided **0.7741** and Vanilla GNN **0.7669**. 
+
+This supports a defensible claim: *power-grid learning strongly benefits from edge features*.
+
+### 4) The ieee118 result is potentially a strong highlight (but currently risky)
+
+You report that on ieee118 **scratch is stuck at F1=0.099** while SSL reaches **0.923** at 100% labels. 
+If this holds under stricter reporting (see below), it can be a major contribution.
+
+---
+
+## Major issues you must fix before submitting (reviewer-stoppers)
+
+### A) You have internal contradictions about “no label leakage” vs what SSL actually reconstructs
+
+In **Methodology Notes** you claim PF SSL is **masked injection reconstruction** and explicitly says voltage **is not included** in SSL input. 
+But elsewhere in Results you explicitly say PF SSL “reconstruct[s] masked **voltage** features”. 
+And in the PF experiment configuration you again state **masked voltage reconstruction**. 
+
+Similarly for OPF:
+
+* Methodology Notes say OPF SSL masks **X/rating** (line parameters), not flows. 
+* But the OPF SSL section says it learned to reconstruct **masked edge flow features**. 
+* And configuration says SSL pretraining is **masked edge flow reconstruction**. 
+
+**Why this matters:** reviewers will absolutely attack this. If SSL reconstructs voltage/flows, then your “unlabeled pretraining” is **not unlabeled** w.r.t. the downstream targets; it becomes “pretraining on the same labels”, which weakens the novelty and invalidates parts of the claim.
+
+**What you must do (minimum fix):**
+
+1. Decide which story is true **in code**:
+
+   * **Option 1 (cleanest):** SSL reconstructs only *inputs that are available at inference* (e.g., injections, topology features, line params), not solver outputs.
+   * **Option 2 (acceptable but must be framed honestly):** SSL reconstructs *measured state variables* (voltages/flows) and you argue these are “unlabeled measurements” in practice. Then do **NOT** claim “no label leakage” — instead claim “self-supervised pretraining from raw measurements”.
+2. Add a **table in the paper**: for each task, list:
+
+   * SSL input features
+   * SSL masked features
+   * SSL reconstruction targets
+   * Downstream supervised targets
+     and explicitly show they do/do-not overlap.
+
+Right now, the document contradicts itself, so it’s not publishable as-is.
+
+---
+
+### B) The “OPF task” definition is not credible yet
+
+Your WP4 OPF configuration says:
+
+> “Task: OPF – predict power flow magnitudes on edges” 
+
+Predicting line flows is usually **power flow**, not OPF. OPF should involve at least one of:
+
+* generator dispatch setpoints,
+* objective/cost,
+* constraint activity (binding constraints),
+* feasibility under constraints.
+
+**If your OPF label is “flows from the OPF solution”**, then you need to justify why this is OPF and not PF, and ideally add at least one true OPF variable (dispatch or cost) to avoid reviewer rejection.
+
+**Minimum fix:** either rename it (e.g., “OPF-solution flow prediction”) or add true OPF outputs.
+
+---
+
+### C) The ieee118 “scratch fails completely” claim is not proven with the evidence shown
+
+You report scratch F1 is flat at 0.099 across label fractions (10/20/50/100%). 
+And you explain that scratch “predicts all negatives.” 
+
+But **F1≈0.10 does not uniquely imply “all negatives”** unless:
+
+* you specify **which F1** (macro? weighted? positive-class only?)
+* you show the confusion matrix or precision/recall
+
+With heavy imbalance (5% positive), a degenerate classifier can yield F1 around ~0.095 under some behaviors (e.g., “predict all positives” in positive-class F1) — so the interpretation needs proof.
+
+**Minimum fixes:**
+
+1. Report for ieee118:
+
+   * precision, recall, F1 **for the positive class**
+   * PR-AUC (much more informative than ROC-AUC here)
+   * confusion matrix at the chosen threshold
+2. Explain thresholding (0.5? tuned on validation?).
+3. Do a **fair baseline rescue attempt**: tune scratch with:
+
+   * threshold tuning on validation,
+   * focal loss or class-balanced loss,
+   * possibly longer training or LR sweep
+     If scratch still fails after *reasonable* tuning, then your “SSL is essential” claim becomes very strong. If scratch can be fixed, your claim changes to “SSL helps a lot” (still publishable, but different).
+
+Right now it’s *promising*, but risky.
+
+---
+
+### D) “Physics-consistent” is currently a claim without physics residual evidence
+
+Your WP table says “Physics Metrics … (AUC 0.93 explainability)” 
+Explainability AUC is **not** a physics-consistency metric.
+
+If you want to say “physics-consistent”, you need at least one explicit physics violation metric, e.g.:
+
+* KCL mismatch per bus,
+* AC power flow equation residual norms from predicted (V, θ),
+* rate of violating thermal limits compared to ground truth,
+* constraint satisfaction statistics.
+
+Without this, reviewers will force you to weaken the claim to “physics-guided”.
+
+---
+
+### E) Your cross-task “normalized performance” figure is misleading for MAE tasks
+
+In `SSL Transfer Benefits at 10% Labels (All Tasks)` the PF/OPF bars appear to show SSL worse (because MAE lower is better but your normalization treats higher as better). This will confuse reviewers immediately and suggests sloppy evaluation presentation.
+
+**Fix:** use “relative error reduction” (percent improvement) or invert MAE into a “score” before normalizing.
+
+---
+
+## Minor but important polish items
+
+### 1) Resolve the cascade 10% improvement mismatch
+
+You still have two different cascade improvement summaries:
+
+* Cross-task summary says +16.5% at 10% labels 
+* Multi-seed validated result says +14.2% at 10% labels 
+
+For publication, you should treat **multi-seed** as the headline and make single-seed numbers secondary (or remove them).
+
+### 2) Add multi-seed for PF/OPF too
+
+You already did multi-seed for cascade. Do the same for PF and OPF (even 3 seeds is fine), otherwise reviewers will ask why only one task got statistical treatment.
+
+---
+
+## Verdict: is it ready to publish?
+
+### My verdict: **Not ready for submission yet — but it’s close and absolutely has publishable potential.**
+
+What you have **is valid as a strong internal milestone**:
+
+* the low-label trend is consistent for PF/OPF  
+* cascade improvements are now multi-seed validated 
+* the ablation is meaningful 
+* the ieee118 jump could be a headline result 
+
+But for peer review, the **blocking issues** are:
+
+1. **SSL task definition contradictions / label leakage story conflict** (must be resolved)  
+2. **OPF task definition credibility** 
+3. **ieee118 “scratch fails” needs proper metrics + fair baseline tuning** 
+4. **physics-consistency needs actual physics residual metrics** 
+5. **one key figure is currently misleading**
+
+If you fix those, you’re in a genuinely strong position for a workshop (NeurIPS/ICLR ML-for-systems/power) and potentially a power-systems venue depending on how you frame OPF and physics validity.
+
+---
+
+## If you want, share the repo — here’s what I’d check quickly
+
+Since you offered: the repo would let me verify the *single most important thing* (what SSL actually reconstructs) and confirm whether the narrative matches the implementation. Specifically I’d check:
+
+* SSL dataloader feature masks,
+* what variables are present in SSL inputs,
+* what loss is computed,
+* OPF target definition,
+* ieee118 evaluation code (thresholding + F1 variant).
+
+But even without the repo, the contradictions in the written results already indicate what must be fixed before submission.
+
+If you share it, I can give you a much sharper “go/no‑go” for submission with a reviewer-style audit checklist.
+
+
+
+# Peer Review Third Results:
+### What looks genuinely strong / publishable in the *results themselves*
+
+1. **The “SSL helps most when labels are scarce” trend is consistent for PF and (what you call) OPF/line‑flow.**
+   Your PF MAE improvements are largest at 10–20% labels and taper off as labels increase (e.g., PF: **+37.1% at 10% labels → +15.1% at 100%**) .
+   Same for “OPF” (**+32.2% → +16.5%**) .
+   That is exactly the kind of result reviewers accept as a *real* SSL gain (sample efficiency) rather than a cherry-picked bump.
+
+2. **Cascade prediction on IEEE‑24 shows a believable gain in the low‑label regime.**
+   The F1 lift is meaningful at 10–20% labels and shrinks at 100% labels . That pattern is plausible and aligns with what SSL is “supposed” to do.
+
+3. **Your updated IEEE‑118 behavior (from `results.json`) is *more credible* than the earlier story.**
+   In the JSON, scratch **does not** “fail at all label fractions”; instead it is weak at 10% but becomes strong at 20–100% (F1 ~0.85→0.99), while SSL is *huge* at 10% and then becomes marginal at 20–100% (even slightly negative at 100%). 
+   That is *much* more believable than “scratch always fails forever,” which typically triggers reviewer suspicion.
+
+---
+
+### The most important criticisms (validity / soundness)
+
+These are not cosmetic—several are “paper‑blocking” until fixed.
+
+#### 1) **Your narrative + figures + markdown are internally inconsistent with your updated numbers**
+
+* `Progress_Report.md` and your “SSL is essential for large grids / scratch fails” storyline claim scratch predicts all negatives and fails across label fractions .
+* But the updated `results.json` shows scratch on IEEE‑118 becomes **very strong** at ≥20% labels (F1 0.847, 0.965, 0.995) .
+* Also the 10% scratch confusion matrix in `results.json` corresponds to “predicts **all positives**” (TN=0, FP huge), not “all negatives” .
+
+**Why this matters:** reviewers will immediately question whether you have the experiment under control. Right now the *story* and the *numbers* disagree.
+
+**Fix:** regenerate **every** plot and table from a single source of truth (e.g., `results.json`) and rewrite the IEEE‑118 claim to:
+
+> “SSL drastically stabilizes learning at very low labels on large grids; at moderate labels scratch catches up.”
+
+That is still a strong result—but defensible.
+
+---
+
+#### 2) **Potential label leakage / “semi-supervised disguised as SSL” risk**
+
+Your documents describe SSL in conflicting ways:
+
+* In `Progress_Report.md`, PF SSL masks **voltage features** and reconstructs them .
+* But voltage is also your PF prediction target.
+
+If your “unlabeled data” contains voltages and you pretrain to reconstruct voltages, then you are effectively using the downstream labels during pretraining. That’s not necessarily “invalid,” but it changes the claim from *self-supervised from unlabeled measurements* to *masked modeling on fully simulated labels*.
+
+Similarly, for “OPF,” the report mentions masking **edge flow features** , but if the downstream task is edge flows, that’s the same issue.
+
+**Why this matters:** it can collapse your “low-label” story. A reviewer may say:
+
+> “You claim 10% labels, but you pretrained using the label signal from the remaining 90%.”
+
+**Fix (paper-grade):**
+
+* Define **what is observable without running a solver** in your intended deployment.
+* Ensure SSL uses *only* those observable inputs.
+  Examples that are safer:
+
+  * mask **P/Q injections** (if those are assumed measurable) and reconstruct them from neighbors/topology,
+  * mask **line parameters** (R/X/B/limits) and reconstruct,
+  * topology/edge-drop recovery, contrastive augmentations, etc.
+* If you *do* want to reconstruct voltages/flows during pretraining, call it **masked solver-supervised pretraining** or **semi-supervised pretraining using simulated states**, and defend it honestly.
+
+Right now you have a **credibility gap** because different files describe different SSL objectives .
+
+---
+
+#### 3) **“OPF” appears to be mislabeled (or at least underspecified)**
+
+Your `Results.md` WP4 section says “predict edge flow magnitudes (Edge-Level PF)” but calls it OPF in headings .
+
+**Why this matters:** OPF means *decision variables / optimal dispatch / cost subject to constraints*. If you only predict line flows, reviewers will reject “OPF” as inaccurate framing.
+
+**Fix:** pick one and be consistent:
+
+* If it’s **line-flow regression**, call it that (and it’s still publishable).
+* If it’s **OPF surrogate**, you need targets like generator setpoints and/or total cost, plus feasibility/constraint satisfaction metrics.
+
+---
+
+#### 4) **The IEEE‑118 “10% label” result is so extreme that you must rule out training-protocol artifacts**
+
+In `results.json`, scratch at 10% has `best_epoch: 0` and `best_val_f1: 0` . That screams:
+
+* early stopping triggering incorrectly,
+* a bug in metric computation,
+* a bad stratification where the 10% labeled subset is missing positives in train/val,
+* or simply that your threshold search/selection is flawed.
+
+Yet the same scratch pipeline works fine at 20%+.
+
+**Why this matters:** your biggest “wow” claim rests on a regime where your baseline training procedure may be broken or unfairly tuned.
+
+**Fixes you should do before submission (non-negotiable):**
+
+* Use **stratified sampling** for label-fraction subsampling (preserve class ratio).
+* Run **≥5 random seeds** for IEEE‑118 at each label fraction and report mean±std (and ideally confidence intervals).
+* Remove any “best_epoch=0” cases by fixing early stopping / ensuring minimum epochs / using a “burn-in” period.
+* Report **PR-AUC** prominently for IEEE‑118 (you already compute it) because it is more stable than F1 under imbalance .
+
+---
+
+#### 5) **Your near-perfect cascade metrics (F1 ~0.99) raise a leakage/definition question**
+
+On IEEE‑118 with 20–100% labels, both scratch and SSL reach extremely high F1 and accuracy .
+
+That might be fine if:
+
+* the “cascade” label is actually something like “overload occurs” and the inputs include loading/limit features that make it easy, **or**
+* your cascade generation is deterministic and strongly signaled by the input features.
+
+But reviewers will ask: “What exactly is the cascade label, and what information is available at prediction time?”
+
+**Fix:** add a clear “prediction-time observability” table:
+
+* Inputs used (and whether they are pre- or post-contingency),
+* Label definition,
+* Whether any post-event quantities are included in features.
+
+---
+
+### What I would require before calling it “publication ready”
+
+If you want a verdict for a real peer-reviewed venue (IEEE TPS / TSTE / NeurIPS workshop), you still need these minimum upgrades:
+
+1. **Consistency pass (must-do)**
+
+   * Update `Results.md` and `Progress_Report.md` so they match the latest numbers and don’t make false claims about IEEE‑118 scratch “failing everywhere.”
+   * Regenerate the “SSL is essential for large grids” plot (it is currently inconsistent with `results.json`).
+
+2. **Protocol hardening**
+
+   * Multi-seed runs for PF and “OPF” too (right now only cascade has proper multi-seed evidence in the writeup) .
+   * Stratified low-label subsampling for cascade.
+
+3. **Baselines & ablations**
+   At minimum:
+
+   * Physics-guided encoder vs plain GCN/GraphSAGE (same parameter budget),
+   * Your SSL vs at least one standard graph SSL baseline (e.g., GraphMAE-style masking) using the same encoder family,
+   * SSL objective ablation (what part matters: injection masking vs line-param masking vs edge-drop, etc.).
+
+4. **Remove ambiguity around “OPF”**
+   Either:
+
+   * rename to line-flow regression, or
+   * implement an actual OPF surrogate target (dispatch/cost) and evaluate feasibility/constraint violations.
+
+5. **Leakage audit section**
+   A short but explicit “we do/do not use voltages/flows in pretraining” statement, consistent across the paper.
+
+---
+
+## Verdict
+
+**Not ready to submit as a paper yet**—not because the idea is weak, but because the **current artifact package has credibility-breaking inconsistencies** (IEEE‑118 story/plots vs `results.json`, and inconsistent descriptions of the SSL objective) .
+
+**But it *is* a valid and promising research direction**, and the PF/flow + cascade sample-efficiency trends look publishable once you:
+
+* reconcile the docs/plots with the updated metrics,
+* harden the protocol with multi-seed + stratification,
+* clarify OPF vs line-flow,
+* and close the label-leakage loopholes.
+
+If you want, share the repo next—specifically I’d look for: (1) how SSL pretraining targets are formed, (2) how label-fraction subsets are sampled, (3) early stopping + threshold selection logic, and (4) what exactly goes into node/edge features for cascade. That’s where “paper-valid” vs “looks-good-but-leaks” is decided.

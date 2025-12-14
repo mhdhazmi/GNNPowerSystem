@@ -168,41 +168,71 @@ def plot_improvement_curve(
 
 
 def plot_multi_task_comparison(results_dict: dict, output_path: Path):
-    """Create grouped bar chart comparing all tasks at 10% labels."""
-    tasks = list(results_dict.keys())
-    scratch_vals = []
-    ssl_vals = []
-    metrics = []
+    """Create grouped bar chart comparing SSL improvement at 10% labels.
 
-    for task, (results, metric, _) in results_dict.items():
+    Shows relative improvement (%) for each task, handling MAE (lower=better)
+    and F1 (higher=better) correctly.
+    """
+    tasks = []
+    improvements = []
+
+    for task, (results, metric, higher_is_better) in results_dict.items():
         frac_results = [r for r in results if r["label_fraction"] == 0.1]
         scratch = [r for r in frac_results if r["init_type"] == "scratch"]
         ssl = [r for r in frac_results if r["init_type"] == "ssl_pretrained"]
 
         if scratch and ssl:
-            scratch_vals.append(scratch[0][metric])
-            ssl_vals.append(ssl[0][metric])
-            metrics.append(metric)
+            s_val = scratch[0][metric]
+            ssl_val = ssl[0][metric]
 
-    # Normalize for visualization
-    max_vals = [max(s, ssl) for s, ssl in zip(scratch_vals, ssl_vals)]
-    scratch_norm = [s / m for s, m in zip(scratch_vals, max_vals)]
-    ssl_norm = [s / m for s, m in zip(ssl_vals, max_vals)]
+            if s_val > 0:
+                if higher_is_better:
+                    # F1: higher is better, improvement = (ssl - scratch) / scratch
+                    imp = (ssl_val - s_val) / s_val * 100
+                else:
+                    # MAE: lower is better, improvement = (scratch - ssl) / scratch
+                    imp = (s_val - ssl_val) / s_val * 100
+
+                tasks.append(task)
+                improvements.append(imp)
 
     x = np.arange(len(tasks))
-    width = 0.35
+    colors = ["#3498db" if imp > 0 else "#e74c3c" for imp in improvements]
 
     fig, ax = plt.subplots(figsize=(9, 5))
-    ax.bar(x - width / 2, scratch_norm, width, label="Scratch", color="#2ecc71", alpha=0.8)
-    ax.bar(x + width / 2, ssl_norm, width, label="SSL Pretrained", color="#3498db", alpha=0.8)
+    bars = ax.bar(x, improvements, color=colors, alpha=0.8)
+
+    # Add value labels on bars
+    for bar, imp in zip(bars, improvements):
+        height = bar.get_height()
+        ax.annotate(
+            f"+{imp:.1f}%",
+            xy=(bar.get_x() + bar.get_width() / 2, height),
+            xytext=(0, 3),
+            textcoords="offset points",
+            ha="center",
+            fontsize=10,
+            fontweight="bold",
+        )
 
     ax.set_xlabel("Task")
-    ax.set_ylabel("Normalized Performance")
+    ax.set_ylabel("SSL Improvement (%)")
     ax.set_title("SSL Transfer Benefits at 10% Labels (All Tasks)")
     ax.set_xticks(x)
     ax.set_xticklabels(tasks)
-    ax.legend()
-    ax.set_ylim(0, 1.15)
+    ax.axhline(y=0, color="gray", linestyle="-", linewidth=0.5)
+    ax.set_ylim(0, max(improvements) * 1.2)
+
+    # Add note about metric direction
+    ax.text(
+        0.02, 0.98,
+        "Improvement = SSL benefit vs scratch\n(MAE: reduction, F1: increase)",
+        transform=ax.transAxes,
+        fontsize=8,
+        verticalalignment="top",
+        style="italic",
+        alpha=0.7,
+    )
 
     plt.tight_layout()
     plt.savefig(output_path)
@@ -234,9 +264,9 @@ def generate_latex_table(results: list[dict], metric: str, caption: str, label: 
             ssl_val = ssl[0][metric]
             # Assume lower is better for MAE, higher for F1
             if "mae" in metric.lower():
-                imp = (s_val - ssl_val) / s_val * 100
+                imp = (s_val - ssl_val) / s_val * 100 if s_val > 0 else 0
             else:
-                imp = (ssl_val - s_val) / s_val * 100
+                imp = (ssl_val - s_val) / s_val * 100 if s_val > 0 else 0
 
             lines.append(f"{int(frac * 100)}\\% & {s_val:.4f} & {ssl_val:.4f} & +{imp:.1f}\\% \\\\")
 
@@ -247,6 +277,36 @@ def generate_latex_table(results: list[dict], metric: str, caption: str, label: 
             "\\end{table}",
         ]
     )
+
+    return "\n".join(lines)
+
+
+def generate_markdown_table(results: list[dict], metric: str, title: str, higher_is_better: bool = True) -> str:
+    """Generate Markdown table from results - SINGLE SOURCE OF TRUTH."""
+    fractions = sorted(set(r["label_fraction"] for r in results))
+
+    metric_name = "F1 Score" if "f1" in metric.lower() else "MAE"
+    lines = [
+        f"### {title}",
+        "",
+        f"| Label % | Scratch {metric_name} | SSL {metric_name} | Improvement |",
+        "|---------|------------|--------|-------------|",
+    ]
+
+    for frac in fractions:
+        scratch = [r for r in results if r["label_fraction"] == frac and r["init_type"] == "scratch"]
+        ssl = [r for r in results if r["label_fraction"] == frac and r["init_type"] == "ssl_pretrained"]
+
+        if scratch and ssl:
+            s_val = scratch[0][metric]
+            ssl_val = ssl[0][metric]
+
+            if higher_is_better:
+                imp = (ssl_val - s_val) / s_val * 100 if s_val > 0 else 0
+            else:
+                imp = (s_val - ssl_val) / s_val * 100 if s_val > 0 else 0
+
+            lines.append(f"| {int(frac * 100)}% | {s_val:.4f} | {ssl_val:.4f} | **+{imp:.1f}%** |")
 
     return "\n".join(lines)
 
@@ -522,12 +582,56 @@ def main():
         f.write("\n".join(summary_lines))
     print(f"  Saved: {output_dir / 'summary_table.tex'}")
 
+    # === GENERATE MARKDOWN TABLES (SINGLE SOURCE OF TRUTH) ===
+    print("\n[Markdown] Generating unified results tables")
+    md_lines = [
+        "# Auto-Generated Results Tables",
+        "",
+        "**Generated from:** `results.json` files in `outputs/`",
+        "",
+        "**DO NOT EDIT MANUALLY** - Regenerate with `python analysis/run_all.py`",
+        "",
+        "---",
+        "",
+    ]
+
+    if cascade_dir:
+        md_lines.append(generate_markdown_table(
+            cascade_results, "test_f1", "Cascade Prediction (IEEE 24-bus)", higher_is_better=True
+        ))
+        md_lines.append("")
+
+    if cascade_dir_118:
+        md_lines.append(generate_markdown_table(
+            cascade_results_118, "test_f1", "Cascade Prediction (IEEE 118-bus)", higher_is_better=True
+        ))
+        md_lines.append("")
+
+    if pf_dir:
+        md_lines.append(generate_markdown_table(
+            pf_results, "test_mae", "Power Flow (IEEE 24-bus)", higher_is_better=False
+        ))
+        md_lines.append("")
+
+    if opf_dir:
+        md_lines.append(generate_markdown_table(
+            opf_results, "test_mae", "Optimal Power Flow (IEEE 24-bus)", higher_is_better=False
+        ))
+        md_lines.append("")
+
+    # Write markdown file
+    md_path = output_dir / "auto_generated_tables.md"
+    with open(md_path, "w") as f:
+        f.write("\n".join(md_lines))
+    print(f"  Saved: {md_path}")
+
     print("\n" + "=" * 60)
     print("FIGURE GENERATION COMPLETE")
     print("=" * 60)
     print(f"Output directory: {output_dir}")
     print(f"Total figures: {len(list(output_dir.glob('*.png')))}")
     print(f"Total tables: {len(list(output_dir.glob('*.tex')))}")
+    print(f"Markdown tables: {md_path}")
 
 
 if __name__ == "__main__":

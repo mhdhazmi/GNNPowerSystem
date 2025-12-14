@@ -30,17 +30,20 @@ from src.models.encoder import PhysicsGuidedEncoder
 from src.utils import get_device, set_seed
 
 
-class MaskedVoltageSSL(nn.Module):
+class MaskedInjectionSSL(nn.Module):
     """
-    SSL model for PF task: masks voltage and learns to reconstruct it.
+    SSL model for PF task: masks power injections and learns to reconstruct them.
 
-    This is a physics-meaningful pretext task: learning to predict voltage
-    from power injections is essentially learning power flow relationships.
+    This is a physics-meaningful pretext task: learning to predict power injections
+    from graph structure teaches the model about power flow relationships.
+
+    Note: Voltage (V) is the PF TARGET and is NOT included in the input features.
+    This avoids label leakage - we only mask/reconstruct P_net and S_net.
     """
 
     def __init__(
         self,
-        node_in_dim: int = 2,  # P_net, S_net (V is masked)
+        node_in_dim: int = 2,  # P_net, S_net (V is the target, not input)
         edge_in_dim: int = 2,  # X, rating
         hidden_dim: int = 128,
         num_layers: int = 4,
@@ -114,17 +117,21 @@ class MaskedVoltageSSL(nn.Module):
         return self.encoder.state_dict()
 
 
-class MaskedFlowSSL(nn.Module):
+class MaskedLineParamSSL(nn.Module):
     """
-    SSL model for OPF task: masks edge flows and learns to reconstruct them.
+    SSL model for OPF task: masks line parameters and learns to reconstruct them.
 
-    This learns the relationship between node features and power flows.
+    This learns the relationship between node embeddings and line characteristics.
+
+    Note: Power flows (P_flow, Q_flow) are the OPF TARGET and are NOT included
+    in the edge input features. This avoids label leakage - we only mask/reconstruct
+    line parameters (X, rating).
     """
 
     def __init__(
         self,
-        node_in_dim: int = 3,  # P_net, S_net, V
-        edge_in_dim: int = 2,  # X, rating (flows are targets)
+        node_in_dim: int = 3,  # P_net, S_net, V (all available as inputs)
+        edge_in_dim: int = 2,  # X, rating (flows are the target, not input)
         hidden_dim: int = 128,
         num_layers: int = 4,
         dropout: float = 0.1,
@@ -280,14 +287,14 @@ def main():
 
     # Create model
     if args.task == "pf":
-        model = MaskedVoltageSSL(
+        model = MaskedInjectionSSL(
             node_in_dim=node_in_dim,
             edge_in_dim=edge_in_dim,
             hidden_dim=args.hidden_dim,
             num_layers=args.num_layers,
         ).to(device)
     else:
-        model = MaskedFlowSSL(
+        model = MaskedLineParamSSL(
             node_in_dim=node_in_dim,
             edge_in_dim=edge_in_dim,
             hidden_dim=args.hidden_dim,
