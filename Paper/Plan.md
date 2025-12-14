@@ -1418,3 +1418,190 @@ Right now, the biggest open question is whether the contradictory SSL descriptio
 * and how validation thresholds/checkpoints are selected.
 
 That audit is what will move this from “promising” to “I’d bet on acceptance.”
+
+
+# Peer Review Fifth Results:
+I went through the updated **Results.md**, **Progress_Report.md**, and the scripts you shared. Net: the *direction* is good and there’s definitely publishable signal here, but there are still a few **serious “reviewer-killer” issues** (mostly consistency + experimental hygiene) that I would fix before submitting anywhere.
+
+Below is a structured critique + a clear verdict.
+
+---
+
+## What looks solid (and genuinely publishable)
+
+### 1) SSL effect is real in the low‑label regime (especially IEEE‑118 cascade)
+
+Your updated IEEE‑118 cascade results now include **multi‑seed statistics** with **focal loss** and **stratified sampling**, which is the right way to evaluate a heavily imbalanced classification task. 
+
+Key takeaway: **with 10% labels (≈9187 samples)**, “scratch” is highly unstable (very large std), while SSL is consistently strong:
+
+* Scratch: **F1 ≈ 0.262 ± 0.271**
+* SSL: **F1 ≈ 0.874 ± 0.056** 
+
+That’s a *real* and interesting result: SSL is not just improving mean performance; it is **reducing collapse/instability** under label scarcity.
+
+This alone is already a good workshop‑level contribution *if written cleanly and evaluated cleanly*.
+
+---
+
+### 2) PF and edge/line‑flow MAE reductions are consistent across label fractions
+
+Your tables show consistent MAE reductions from SSL pretraining across label fractions:
+
+**Power Flow (IEEE‑24)**: ~15–37% MAE reduction depending on label fraction 
+**Line Flow (IEEE‑24)**: ~16–32% MAE reduction 
+
+This pattern (biggest gains at 10–20% labels, diminishing gains at 100%) is exactly what reviewers expect from SSL transfer.
+
+---
+
+### 3) You started doing the right “scientific hygiene” items
+
+You added/mentioned:
+
+* class imbalance handling (focal loss)
+* multi‑seed reporting
+* PR‑AUC reporting (important for imbalance)
+* baseline comparisons (even if they need fixes—see below) 
+
+That’s the correct direction.
+
+---
+
+## Critical issues to fix before you submit (these *will* get attacked)
+
+### A) Terminology / task definition is still inconsistent (“OPF” is not OPF)
+
+In multiple places, the work calls an edge‑flow task “OPF”.
+
+* `train_pf_opf.py` literally describes it as “edge-level flow prediction (OPF)” 
+* Results.md also mixes “OPF” and “Line Flow Prediction (Edge‑Level PF)”, and even mentions “masked edge flow reconstruction” in one place. 
+
+This is a big deal: **reviewers will not accept “OPF” wording unless you are actually predicting OPF outputs** (generator dispatch, cost, constraint activity, feasibility, etc.).
+
+**Actionable fix (must-do):**
+
+* Rename everywhere to **“Edge/Line Flow Prediction”** if that’s what it is.
+* If you want an “OPF” claim, implement a real OPF label pipeline (pandapower `runopp` as your plan said) and predict *dispatch/cost*. Otherwise, remove OPF language entirely.
+
+---
+
+### B) Potential “task triviality” / unrealistic inputs (line flow uses voltage as input)
+
+Your own Results.md states for the “Line Flow Task” that node input includes voltages/angles:
+“input features: P_net, Q_net, V_mag, V_ang … predict line P/Q flows” 
+
+If you already have (V) and (\theta), **branch flows are basically a deterministic function** of (V,θ) and line parameters. Reviewers may ask:
+
+> why is a GNN needed at all, vs simply computing flows from AC equations?
+
+**Actionable fix (choose one):**
+
+1. **Stronger framing:** “We approximate flow calculation from noisy/partial state estimates” and show value under noise / missingness / speed (compare vs analytic computation + noise).
+2. **Stronger task:** remove voltage from inputs and predict flows **from injections/topology only** (this becomes a true PF surrogate).
+3. **Drop this task** and focus on PF + cascade (cleaner story).
+
+Right now, this part is vulnerable.
+
+---
+
+### C) Documentation contradicts itself on “no label leakage”
+
+You correctly state in code that injection masking avoids voltage leakage:
+
+* The `MaskedInjectionSSL` comment: “Avoid masking voltage: voltage is downstream target” 
+
+But the top of `pretrain_ssl_pf.py` still says “masked voltage reconstruction.” 
+And Results.md has a line saying “reconstruct masked voltage features” too. 
+
+Even if the *implementation* is fine, **this inconsistency will immediately trigger reviewer suspicion** (“did they pretrain on labels?”).
+
+**Actionable fix (must-do):**
+
+* Make the wording consistent everywhere (docs + report + code comments).
+* Add a short “Leakage audit” paragraph and be explicit: *pretraining uses only features available at test time for that task*.
+
+---
+
+### D) Baseline evaluation bug: your threshold baseline tunes on the test set
+
+In `trivial_baselines.py`:
+
+````python
+# Tune on train, evaluate on test
+best_thr, best_f1 = threshold_baseline(features_test, labels_test, "max_loading")
+``` :contentReference[oaicite:11]{index=11}
+
+That is **test leakage**, full stop. Even if the baseline is weak, *any* test leakage will get your whole experimental section questioned.
+
+**Actionable fix (must-do):**
+- Tune threshold on **train or val**, then evaluate once on test.
+- Recompute the baseline table in Results.md afterward. :contentReference[oaicite:12]{index=12}
+
+---
+
+### E) Progress report still contains outdated/incorrect claims (and sample count inconsistency)
+Your Progress_Report still says “10% labels (~918 training samples)” :contentReference[oaicite:13]{index=13}  
+…but your dataset split for IEEE‑118 is train ≈ 91,875, so 10% is ≈ 9,187. :contentReference[oaicite:14]{index=14}
+
+Also, the Progress_Report still carries the old narrative that scratch “fails” and predicts everything negative/degenerate at all label fractions :contentReference[oaicite:15]{index=15}, but the updated Results.md shows scratch becomes strong at higher label fractions under focal loss. :contentReference[oaicite:16]{index=16}
+
+**Actionable fix (must-do):**
+- Bring Progress_Report in sync with Results.md.
+- Delete/replace any obsolete tables so you don’t contradict yourself.
+
+---
+
+### F) Physics/“topology-aware” evidence is still not convincing enough (yet)
+Right now, the strongest story is **SSL improves learning under label scarcity**.
+
+But your original “physics‑guided topology-aware embeddings” theme needs stronger evidence than “we used admittance weighting”.
+
+At minimum, reviewers will expect one of:
+- explicit **KCL / power-balance residual** evaluation on PF predictions,
+- constraint violations (voltage limits, thermal limits) and how SSL affects them,
+- sensitivity tests (line removal, impedance perturbation) and whether embeddings respond physically.
+
+Right now, your physics/embedding correlation metrics are not strong enough to carry that claim (and some correlations are negative, which will invite hard questions). :contentReference[oaicite:17]{index=17}
+
+---
+
+## How I’d interpret your current results (the “honest story”)
+What your updated numbers support most strongly is:
+
+> **Self-supervised pretraining stabilizes and improves GNN learning for cascading-failure prediction on large grids under label scarcity, and improves PF/line-flow regression sample-efficiency.**
+
+That’s a coherent paper—**if you tighten the definitions, remove leakage, and standardize evaluation**.
+
+---
+
+## Verdict: is it ready to publish right now?
+
+### My verdict: **Not yet ready for submission** (but close to a publishable core).
+The *results trend* is promising and valid, but the work currently has **several critical issues that would likely block acceptance**:
+
+- OPF vs line-flow naming confusion :contentReference[oaicite:18]{index=18}  
+- baseline test leakage :contentReference[oaicite:19]{index=19}  
+- contradictory “masked voltage / no leakage” descriptions :contentReference[oaicite:20]{index=20} :contentReference[oaicite:21]{index=21}  
+- inconsistent sample counts and outdated progress narrative :contentReference[oaicite:22]{index=22} :contentReference[oaicite:23]{index=23}  
+
+Those are the kinds of things that cause reviewers to doubt the entire experimental section—even if the idea is good.
+
+---
+
+## “Minimum fixes” checklist to become publish‑ready
+If you do only a small set of changes, I’d do these first:
+
+1) **Rename tasks correctly** (drop OPF language unless you truly implement OPF labels). :contentReference[oaicite:24]{index=24}  
+2) **Fix baseline leakage** (threshold tuning must not touch test). :contentReference[oaicite:25]{index=25}  
+3) **Make the leakage story consistent everywhere** (code + Results.md + Progress_Report). :contentReference[oaicite:26]{index=26} :contentReference[oaicite:27]{index=27}  
+4) **Standardize reporting**:
+   - multi-seed for PF and line-flow too (like you did for IEEE‑118 cascade) :contentReference[oaicite:28]{index=28}  
+   - report confidence intervals or std everywhere  
+5) **Add 1–2 “physics validity” metrics** (KCL residual, constraint violations) so “physics-guided” is defensible.
+
+If you want, you can share the repo afterward—but even without it, the above items are clearly visible from the files/scripts you already provided.
+
+If you want, I can also propose a “paper framing” that matches what your results currently support (so you don’t overclaim OPF/physics and get rejected for scope mismatch).
+::contentReference[oaicite:29]{index=29}
+````

@@ -116,14 +116,14 @@ To verify that GNN performance is not trivially achievable, we evaluate simple b
 
 | Method | IEEE-24 F1 | IEEE-24 PR-AUC | IEEE-118 F1 | IEEE-118 PR-AUC |
 |--------|-----------|----------------|-------------|-----------------|
-| Max Loading Threshold | 0.30 | 0.40 | 0.10 | 0.54 |
-| XGBoost (Tabular Features) | 0.79 | 0.86 | 0.37 | 0.41 |
+| Max Loading Threshold | 0.30 | 0.12 | 0.10 | 0.05 |
+| XGBoost (Tabular Features) | 0.79 | 0.89 | 0.37 | 0.28 |
 | **GNN (100% labels)** | **0.99** | **0.99** | **0.99** | **0.99** |
 | **GNN SSL (10% labels)** | **0.87** | **0.94** | **0.90** | **0.94** |
 
 **Baseline Details:**
-- **Max Loading Threshold**: Predict cascade if max(|S_flow|/rating) > threshold, tuned to maximize F1
-- **XGBoost**: 100 trees trained on 20 tabular summary statistics (max/mean/std loading, flow statistics, voltage statistics)
+- **Max Loading Threshold**: Predict cascade if max(|S_flow|/rating) > threshold. Threshold tuned on **training set** to maximize F1, then evaluated on held-out **test set** (proper evaluation without data leakage).
+- **XGBoost**: 100 trees trained on 20 tabular summary statistics (max/mean/std loading, flow statistics, voltage statistics). Trained on train set, evaluated on test set.
 
 **Key Findings:**
 1. **IEEE-118 shows largest gap**: XGBoost achieves only F1=0.37 while GNN achieves F1=0.99, demonstrating that graph structure provides substantial value beyond aggregate statistics

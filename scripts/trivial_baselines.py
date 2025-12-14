@@ -106,9 +106,56 @@ def extract_graph_features(data) -> dict:
     return features
 
 
+def threshold_baseline_proper(features_train: list, labels_train: np.ndarray,
+                               features_test: list, labels_test: np.ndarray,
+                               feature_name: str = 'max_loading') -> dict:
+    """
+    Proper threshold baseline: tune on TRAIN, evaluate on TEST.
+
+    This avoids test leakage by only using training data for threshold selection.
+    """
+    train_values = np.array([f[feature_name] for f in features_train])
+    test_values = np.array([f[feature_name] for f in features_test])
+
+    # Tune threshold on TRAIN set only
+    best_f1 = 0
+    best_threshold = 0
+
+    thresholds = np.linspace(train_values.min(), train_values.max(), 100)
+
+    for thresh in thresholds:
+        preds = (train_values > thresh).astype(int)
+        f1 = f1_score(labels_train, preds, zero_division=0)
+        if f1 > best_f1:
+            best_f1 = f1
+            best_threshold = thresh
+
+    # Apply best threshold to TEST set (no leakage)
+    test_preds = (test_values > best_threshold).astype(int)
+
+    # Compute metrics on TEST set
+    results = {
+        'method': f'Threshold({feature_name})',
+        'threshold': float(best_threshold),
+        'train_f1': float(best_f1),
+        'f1': float(f1_score(labels_test, test_preds, zero_division=0)),
+        'precision': float(precision_score(labels_test, test_preds, zero_division=0)),
+        'recall': float(recall_score(labels_test, test_preds, zero_division=0)),
+        'accuracy': float(accuracy_score(labels_test, test_preds)),
+    }
+
+    # PR-AUC on test set
+    precision_curve, recall_curve, _ = precision_recall_curve(labels_test, test_values)
+    results['pr_auc'] = float(auc(recall_curve, precision_curve))
+
+    return results
+
+
 def threshold_baseline(features_list: list, labels: np.ndarray,
                        feature_name: str = 'max_loading') -> dict:
     """
+    DEPRECATED: This function has test leakage. Use threshold_baseline_proper instead.
+
     Simple threshold baseline: predict cascade if feature > threshold.
     Tune threshold on data to maximize F1.
     """
@@ -266,22 +313,30 @@ def main():
     print("Baseline 1: Max Loading Threshold")
     print("-"*40)
 
-    # Tune on train, evaluate on test
-    thresh_result = threshold_baseline(features_test, labels_test, 'max_loading')
+    # Tune threshold on TRAIN set, then evaluate on TEST set (no leakage)
+    thresh_result = threshold_baseline_proper(
+        features_train, labels_train,
+        features_test, labels_test,
+        'max_loading'
+    )
     results.append(thresh_result)
 
-    print(f"Best threshold: {thresh_result['threshold']:.4f}")
-    print(f"F1: {thresh_result['f1']:.4f}")
-    print(f"Precision: {thresh_result['precision']:.4f}")
-    print(f"Recall: {thresh_result['recall']:.4f}")
-    print(f"PR-AUC: {thresh_result['pr_auc']:.4f}")
+    print(f"Best threshold (tuned on train): {thresh_result['threshold']:.4f}")
+    print(f"Test F1: {thresh_result['f1']:.4f}")
+    print(f"Test Precision: {thresh_result['precision']:.4f}")
+    print(f"Test Recall: {thresh_result['recall']:.4f}")
+    print(f"Test PR-AUC: {thresh_result['pr_auc']:.4f}")
 
     # Baseline 1b: P95 Loading Threshold
     print("\n" + "-"*40)
     print("Baseline 1b: P95 Loading Threshold")
     print("-"*40)
 
-    thresh_p95_result = threshold_baseline(features_test, labels_test, 'p95_loading')
+    thresh_p95_result = threshold_baseline_proper(
+        features_train, labels_train,
+        features_test, labels_test,
+        'p95_loading'
+    )
     results.append(thresh_p95_result)
 
     print(f"Best threshold: {thresh_p95_result['threshold']:.4f}")
