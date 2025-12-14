@@ -114,10 +114,15 @@ def plot_improvement_curve(
     output_path: Path,
     higher_is_better: bool = True,
 ):
-    """Create line plot showing improvement across label fractions."""
+    """Create line plot showing improvement across label fractions.
+
+    Shows both relative (%) and absolute (Δ) improvements to avoid
+    misleading visualizations when denominator is small.
+    """
     fractions = sorted(set(r["label_fraction"] for r in results))
 
     improvements = []
+    absolute_gains = []
     for frac in fractions:
         scratch = [r for r in results if r["label_fraction"] == frac and r["init_type"] == "scratch"]
         ssl = [r for r in results if r["label_fraction"] == frac and r["init_type"] == "ssl_pretrained"]
@@ -127,11 +132,15 @@ def plot_improvement_curve(
             ssl_val = ssl[0][metric]
             if higher_is_better:
                 imp = (ssl_val - s_val) / s_val * 100 if s_val > 0 else 0
+                delta = ssl_val - s_val
             else:
                 imp = (s_val - ssl_val) / s_val * 100 if s_val > 0 else 0
+                delta = s_val - ssl_val  # Positive delta = improvement for MAE
             improvements.append(imp)
+            absolute_gains.append(delta)
         else:
             improvements.append(0)
+            absolute_gains.append(0)
 
     fig, ax = plt.subplots(figsize=(7, 5))
     ax.plot(
@@ -145,20 +154,27 @@ def plot_improvement_curve(
     ax.fill_between([f * 100 for f in fractions], improvements, alpha=0.3, color="#e74c3c")
 
     ax.set_xlabel("Label Fraction (%)")
-    ax.set_ylabel("Improvement (%)")
+    ax.set_ylabel("Relative Improvement (%)")
     ax.set_title(title)
     ax.set_xlim(0, 105)
-    ax.set_ylim(0, max(improvements) * 1.2)
+    # Cap y-axis at 300% to avoid extreme values dominating the plot
+    y_max = min(max(improvements) * 1.2, 300) if max(improvements) > 0 else 100
+    ax.set_ylim(0, y_max)
 
-    # Add value labels
-    for f, imp in zip(fractions, improvements):
+    # Add value labels with both relative % and absolute Δ
+    for f, imp, delta in zip(fractions, improvements, absolute_gains):
+        # Show both relative and absolute for clarity
+        if "f1" in metric.lower():
+            label = f"+{imp:.0f}%\n(Δ={delta:.2f})"
+        else:
+            label = f"+{imp:.1f}%\n(Δ={delta:.4f})"
         ax.annotate(
-            f"{imp:.1f}%",
-            xy=(f * 100, imp),
+            label,
+            xy=(f * 100, min(imp, y_max * 0.95)),  # Cap annotation position
             xytext=(0, 10),
             textcoords="offset points",
             ha="center",
-            fontsize=10,
+            fontsize=9,
         )
 
     plt.tight_layout()
@@ -312,7 +328,7 @@ def generate_markdown_table(results: list[dict], metric: str, title: str, higher
 
 
 def plot_grid_scalability(results_24: list[dict], results_118: list[dict], output_path: Path):
-    """Create figure showing SSL is essential for large grids."""
+    """Create figure showing SSL stabilizes learning on large grids at low labels."""
     fractions = [0.1, 0.2, 0.5, 1.0]
 
     # Extract F1 scores
@@ -351,6 +367,17 @@ def plot_grid_scalability(results_24: list[dict], results_118: list[dict], outpu
     ax1.legend()
     ax1.set_ylim(0, 1.0)
 
+    # Add absolute gain annotations for IEEE-24
+    for i, (s, ssl) in enumerate(zip(ieee24_scratch, ieee24_ssl)):
+        delta = ssl - s
+        if delta > 0.01:  # Only annotate meaningful improvements
+            ax1.annotate(
+                f"Δ={delta:.2f}",
+                xy=(x[i] + width/2, ssl),
+                ha="center", va="bottom",
+                fontsize=8, color="#2c3e50",
+            )
+
     # IEEE 118-bus
     ax2 = axes[1]
     ax2.bar(x - width/2, ieee118_scratch, width, label="Scratch", color="#2ecc71", alpha=0.8)
@@ -363,18 +390,29 @@ def plot_grid_scalability(results_24: list[dict], results_118: list[dict], outpu
     ax2.legend()
     ax2.set_ylim(0, 1.0)
 
-    # Add annotation showing scratch fails
+    # Add absolute gain annotations for IEEE-118 (use ΔF1 instead of %)
+    for i, (s, ssl) in enumerate(zip(ieee118_scratch, ieee118_ssl)):
+        delta = ssl - s
+        if delta > 0.01:
+            ax2.annotate(
+                f"ΔF1={delta:.2f}",
+                xy=(x[i] + width/2, ssl),
+                ha="center", va="bottom",
+                fontsize=8, color="#2c3e50",
+            )
+
+    # Add annotation showing scratch is unstable at 10% (not "FAILS")
     ax2.annotate(
-        "Scratch FAILS\n(predicts all negatives)",
-        xy=(0, 0.1),
-        xytext=(1, 0.3),
-        fontsize=10,
+        "Scratch unstable\n(high variance)",
+        xy=(0, ieee118_scratch[0] + 0.05),
+        xytext=(1, 0.35),
+        fontsize=9,
         color="#e74c3c",
         arrowprops=dict(arrowstyle="->", color="#e74c3c"),
         ha="center",
     )
 
-    plt.suptitle("SSL is Essential for Large Grids", fontsize=14, fontweight="bold")
+    plt.suptitle("SSL Stabilizes Learning at Low Labels on Large Grids", fontsize=13, fontweight="bold")
     plt.tight_layout()
     plt.savefig(output_path)
     plt.close()
@@ -512,27 +550,27 @@ def main():
         plot_ssl_comparison_bar(
             opf_results,
             "test_mae",
-            "Optimal Power Flow: SSL vs Scratch",
+            "Line Flow Prediction: SSL vs Scratch",
             "MAE",
-            output_dir / "opf_ssl_comparison.png",
+            output_dir / "lineflow_ssl_comparison.png",
             higher_is_better=False,
         )
 
         plot_improvement_curve(
             opf_results,
             "test_mae",
-            "Optimal Power Flow: SSL Improvement vs Label Fraction",
-            output_dir / "opf_improvement_curve.png",
+            "Line Flow Prediction: SSL Improvement vs Label Fraction",
+            output_dir / "lineflow_improvement_curve.png",
             higher_is_better=False,
         )
 
-        results_dict["OPF"] = (opf_results, "test_mae", False)
+        results_dict["Line Flow"] = (opf_results, "test_mae", False)
 
         # LaTeX table
-        latex = generate_latex_table(opf_results, "test_mae", "OPF SSL Transfer Results", "opf_ssl")
-        with open(output_dir / "opf_table.tex", "w") as f:
+        latex = generate_latex_table(opf_results, "test_mae", "Line Flow Prediction SSL Transfer Results", "lineflow_ssl")
+        with open(output_dir / "lineflow_table.tex", "w") as f:
             f.write(latex)
-        print(f"  Saved: {output_dir / 'opf_table.tex'}")
+        print(f"  Saved: {output_dir / 'lineflow_table.tex'}")
     else:
         print("\n[OPF] No results found")
 
@@ -615,7 +653,7 @@ def main():
 
     if opf_dir:
         md_lines.append(generate_markdown_table(
-            opf_results, "test_mae", "Optimal Power Flow (IEEE 24-bus)", higher_is_better=False
+            opf_results, "test_mae", "Line Flow Prediction (IEEE 24-bus)", higher_is_better=False
         ))
         md_lines.append("")
 

@@ -164,7 +164,7 @@ These metrics are integrated into `src/metrics/physics.py` and automatically com
 | WP6 | Cascade Transfer | Complete | AUC-ROC 0.93 explanation fidelity |
 | WP7 | Robustness (OOD) | Complete | +22% SSL advantage at 1.3x load |
 | WP8 | Paper Artifacts | Complete | MODEL_CARD.md, figures, tables |
-| WP9 | Scalability (IEEE 118) | Complete | **SSL critical at <20% labels; both methods converge at higher labels** |
+| WP9 | Scalability (IEEE 118) | Complete | **SSL stabilizes learning at ≤20% labels; both methods converge at higher labels** |
 
 ### 3.2 Power Flow Results (IEEE 24-bus)
 
@@ -282,7 +282,7 @@ At 20%+ labels, both methods achieve reliable performance with low variance.
 3. This makes learning consistent regardless of random seed
 4. At 20%+ labels, scratch has enough samples to reliably learn, and the SSL advantage diminishes
 
-**Implication:** SSL is essential for **consistent, reliable** learning on large grids when labeled data is extremely scarce (<20%). Scratch may work with lucky seeds but is unreliable. At moderate label fractions, both methods achieve near-perfect performance.
+**Implication:** SSL provides **consistent, reliable** learning on large grids when labeled data is extremely scarce (≤20% labels under severe class imbalance). Scratch may work with lucky seeds but shows high variance. At moderate label fractions (≥50%), both methods achieve near-perfect performance.
 
 ### 3.6 Robustness Under Distribution Shift
 
@@ -434,7 +434,7 @@ All experiments use `seed=42` via `src/utils.set_seed()` for full reproducibilit
 |--------|-------------|
 | `cascade_ssl_comparison.png` | Bar chart: SSL vs Scratch (IEEE 24) |
 | `cascade_118_ssl_comparison.png` | Bar chart: SSL vs Scratch (IEEE 118) |
-| `grid_scalability_comparison.png` | Side-by-side: IEEE 24 vs 118 showing SSL is essential |
+| `grid_scalability_comparison.png` | Side-by-side: IEEE 24 vs 118 showing SSL stabilizes learning at low labels |
 | `pf_ssl_comparison.png` | Power Flow comparison |
 | `lineflow_ssl_comparison.png` | Line Flow comparison |
 | `cascade_improvement_curve.png` | Improvement vs label fraction |
@@ -461,7 +461,7 @@ This work demonstrates that physics-guided self-supervised learning significantl
 1. **PhysicsGuidedEncoder:** A GNN architecture incorporating admittance-weighted message passing
 2. **Task-specific SSL:** Masked reconstruction pretext tasks aligned with power system physics
 3. **Low-label transfer:** Consistent 15-37% improvement at 10% labeled data across PF, Line Flow, and cascade tasks
-4. **Scalability validation:** SSL is critical for large grids at extreme low-label regimes (<20%); both methods converge at higher label fractions
+4. **Scalability validation:** SSL stabilizes learning on large grids at extreme low-label regimes (≤20%); both methods converge at higher label fractions
 5. **Explainability:** 0.93 AUC-ROC for edge failure attribution
 
 ### 7.1 Future Work

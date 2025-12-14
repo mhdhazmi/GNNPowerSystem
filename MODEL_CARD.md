@@ -4,12 +4,12 @@
 
 **Model Name**: PhysicsGuidedEncoder
 **Version**: 1.0
-**Task Types**: Cascade Failure Prediction, Power Flow (PF), Optimal Power Flow (OPF)
+**Task Types**: Cascade Failure Prediction, Power Flow (PF), Line Flow Prediction
 **Architecture**: Graph Neural Network with physics-informed message passing
 
 ### Primary Claim
 
-> "A grid-specific self-supervised, physics-consistent GNN encoder improves PF/OPF learning (especially low-label / OOD), and transfers to cascading-failure prediction and explanation."
+> "A grid-specific self-supervised, physics-consistent GNN encoder improves PF/Line Flow learning (especially low-label / OOD), and transfers to cascading-failure prediction and explanation."
 
 ---
 
@@ -45,7 +45,7 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 |------|---------------|---------------|------------|
 | Cascade | 4 | 4 | ~270K |
 | PF | 2 | 2 | ~274K |
-| OPF | 3 | 2 | ~168K |
+| Line Flow | 3 | 2 | ~168K |
 
 ---
 
@@ -71,7 +71,7 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 |---------|-------------|-------|
 | P_net | Net active power injection (MW) | All |
 | S_net | Net apparent power (MVA) | All |
-| V | Voltage magnitude (p.u.) | OPF, Cascade |
+| V | Voltage magnitude (p.u.) | Line Flow, Cascade |
 | status | Component status (0/1) | Cascade |
 
 **Edge Features**:
@@ -97,8 +97,8 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 - Predicts voltage from power injections
 - Physics-meaningful: learns power flow relationships
 
-**OPF Task**: Masked edge flow reconstruction (MaskedFlowSSL)
-- Predicts edge flows from node embeddings
+**Line Flow Task**: Masked line parameter reconstruction (MaskedFlowSSL)
+- Predicts line parameters from node embeddings
 - Physics-meaningful: learns power transfer relationships
 
 ---
@@ -109,18 +109,18 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 
 | Task | Metric | Scratch | SSL | Improvement |
 |------|--------|---------|-----|-------------|
-| Cascade Prediction | F1 Score | 0.758 | 0.883 | **+16.5%** |
-| Power Flow (PF) | MAE | 0.0216 | 0.0136 | **+37.1%** |
-| Optimal Power Flow (OPF) | MAE | 0.0141 | 0.0096 | **+32.2%** |
+| Cascade Prediction | F1 Score | 0.753 ± 0.029 | 0.860 ± 0.012 | **+14.2%** (3-seed) |
+| Power Flow (PF) | MAE | 0.0149 ± 0.0004 | 0.0106 ± 0.0003 | **+29.1%** (5-seed) |
+| Line Flow Prediction | MAE | 0.0084 ± 0.0003 | 0.0062 ± 0.0002 | **+26.4%** (5-seed) |
 
 ### Full Label Results
 
 | Task | Metric | 100% Labels |
 |------|--------|-------------|
-| Cascade Prediction | F1 Score | 0.957 |
-| Power Flow | MAE | 0.0047 |
+| Cascade Prediction | F1 Score | 0.959 |
+| Power Flow | MAE | 0.0035 |
 | Power Flow | R² | 0.998 |
-| Optimal Power Flow | MAE | 0.0026 |
+| Line Flow Prediction | MAE | 0.0021 |
 
 ### Robustness (OOD Performance)
 
@@ -218,9 +218,9 @@ The PhysicsGuidedConv layer uses learned admittance weighting:
 ```
 configs/base.yaml          # Default hyperparameters
 scripts/train_cascade.py   # Cascade training
-scripts/train_pf_opf.py    # PF/OPF training
+scripts/train_pf_opf.py    # PF/Line Flow training
 scripts/pretrain_ssl.py    # SSL pretraining (cascade)
-scripts/pretrain_ssl_pf.py # SSL pretraining (PF/OPF)
+scripts/pretrain_ssl_pf.py # SSL pretraining (PF/Line Flow)
 ```
 
 ### One-Command Reproduction
@@ -250,7 +250,7 @@ If you use this model, please cite:
 | File | Description |
 |------|-------------|
 | `outputs/ssl_pf_ieee24_*/best_model.pt` | SSL pretrained encoder (PF) |
-| `outputs/ssl_opf_ieee24_*/best_model.pt` | SSL pretrained encoder (OPF) |
+| `outputs/ssl_opf_ieee24_*/best_model.pt` | SSL pretrained encoder (Line Flow) |
 | `outputs/comparison_ieee24_*/` | Cascade SSL vs scratch comparison |
 | `outputs/pf_comparison_ieee24_*/` | PF SSL vs scratch comparison |
-| `outputs/opf_comparison_ieee24_*/` | OPF SSL vs scratch comparison |
+| `outputs/opf_comparison_ieee24_*/` | Line Flow SSL vs scratch comparison |

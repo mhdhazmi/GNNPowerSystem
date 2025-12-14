@@ -14,12 +14,12 @@ This document summarizes the experimental results supporting the paper's primary
 | WP1 | Data Ingestion | Complete | PyG dataset loader |
 | WP2 | Baseline Model | Complete | F1=95.83% cascade prediction |
 | WP3 | Physics Metrics | Complete | Physics-guided > vanilla (AUC 0.93 explainability) |
-| WP4 | PF/Line Flow Transfer | Complete | **PF +37.1%, Line Flow +32.2% at 10% labels** |
-| WP5 | SSL Pretraining | Complete | +16.5% F1 at 10% labels (cascade) |
+| WP4 | PF/Line Flow Transfer | Complete | **PF +29.1%, Line Flow +26.4% at 10% labels** (5-seed validated) |
+| WP5 | SSL Pretraining | Complete | +14.2% F1 at 10% labels (cascade, 3-seed validated) |
 | WP6 | Cascade Transfer | Complete | AUC-ROC 0.93 explanation fidelity |
 | WP7 | Robustness | Complete | +22% SSL advantage at 1.3x load |
 | WP8 | Paper Artifacts | Complete | MODEL_CARD.md, figures, tables |
-| WP9 | Scalability (ieee118) | Complete | SSL critical at <20% labels; both converge at higher labels |
+| WP9 | Scalability (ieee118) | Complete | SSL stabilizes learning at ≤20% labels; both converge at higher labels |
 
 ---
 
@@ -33,7 +33,7 @@ This document summarizes the experimental results supporting the paper's primary
 - **Task**: Cascade failure classification
 - **Loss Function**: Focal loss (α=0.25, γ=2.0) for fair scratch baseline
 
-### Key Finding: SSL is Essential for Large Grids at Low Labels
+### Key Finding: SSL Stabilizes Learning at Low Labels on Large Grids
 
 **Multi-seed validation (5 seeds: 42, 123, 456, 789, 1337) with focal loss and stratified sampling:**
 
@@ -248,12 +248,12 @@ The SSL pretraining approach demonstrates consistent benefits across all evaluat
 
 | Task | Grid | Metric | 10% Labels Result |
 |------|------|--------|-------------------|
-| **Cascade Prediction** | ieee24 | F1 Score | +14.2% improvement (3-seed) |
-| **Power Flow (PF)** | ieee24 | MAE | +37.1% improvement |
-| **Line Flow Prediction** | ieee24 | MAE | +32.2% improvement |
+| **Cascade Prediction** | ieee24 | F1 Score | +14.2% improvement (3-seed validated) |
+| **Power Flow (PF)** | ieee24 | MAE | +29.1% improvement (5-seed validated) |
+| **Line Flow Prediction** | ieee24 | MAE | +26.4% improvement (5-seed validated) |
 | **Robustness (OOD)** | ieee24 | F1 @ 1.3x load | +22% advantage |
 | **Explainability** | ieee24 | AUC-ROC | 0.93 fidelity |
-| **Cascade (Large Grid)** | ieee118 | F1 Score | +234% improvement; SSL stable, scratch unstable (5-seed) |
+| **Cascade (Large Grid)** | ieee118 | F1 Score | +234% (ΔF1=+0.61); SSL stable (±0.05), scratch unstable (±0.24) (5-seed) |
 
 ---
 
@@ -358,7 +358,7 @@ python analysis/generate_tables.py
 | `cascade_improvement_curve.png` | Line plot: Improvement vs label fraction (IEEE 24) |
 | `cascade_118_ssl_comparison.png` | Bar chart: Cascade SSL vs Scratch (IEEE 118) |
 | `cascade_118_improvement_curve.png` | Line plot: Improvement curve (IEEE 118) |
-| `grid_scalability_comparison.png` | Side-by-side: IEEE 24 vs IEEE 118 showing SSL is essential |
+| `grid_scalability_comparison.png` | Side-by-side: IEEE 24 vs IEEE 118 showing SSL stabilizes learning at low labels |
 | `pf_ssl_comparison.png` | Bar chart: PF SSL vs Scratch |
 | `pf_improvement_curve.png` | Line plot: PF improvement curve |
 | `lineflow_ssl_comparison.png` | Bar chart: Line Flow SSL vs Scratch |
@@ -493,14 +493,14 @@ Results generated via: `python scripts/run_ablations.py --task cascade`
 
 The experimental results strongly validate the paper's primary claim across multiple dimensions:
 
-### IEEE 24-bus Results
-- **PF**: +37.1% MAE improvement at 10% labels
-- **Line Flow**: +32.2% MAE improvement at 10% labels
-- **Cascade**: +14.2% ± 2.9% F1 improvement at 10% labels (multi-seed validated)
+### IEEE 24-bus Results (Multi-seed Validated)
+- **PF**: +29.1% MAE improvement at 10% labels (5-seed: 0.0149±0.0004 → 0.0106±0.0003)
+- **Line Flow**: +26.4% MAE improvement at 10% labels (5-seed: 0.0084±0.0003 → 0.0062±0.0002)
+- **Cascade**: +14.2% F1 improvement at 10% labels (3-seed: 0.7528±0.029 → 0.8599±0.012)
 
 ### IEEE 118-bus Scalability (5x larger grid, 5-seed validated)
-- **SSL critical at 10% labels**: Scratch F1 = 0.262 ± 0.243 (unstable), SSL F1 = 0.874 ± 0.051 (stable)
-- **SSL enables consistent learning**: +234% improvement at 10% labels
+- **SSL stabilizes learning at 10% labels**: Scratch F1 = 0.262 ± 0.243 (unstable), SSL F1 = 0.874 ± 0.051 (stable)
+- **Absolute gain**: ΔF1 = +0.61 at 10% labels (+234% relative)
 - **Scratch training is unstable**: High variance shows some seeds learn, others fail completely
 - **Both converge at high labels**: 0.99+ F1 at 100% labels for both methods
 

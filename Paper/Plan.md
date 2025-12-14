@@ -1605,3 +1605,145 @@ If you want, you can share the repo afterward—but even without it, the above i
 If you want, I can also propose a “paper framing” that matches what your results currently support (so you don’t overclaim OPF/physics and get rejected for scope mismatch).
 ::contentReference[oaicite:29]{index=29}
 ````
+
+# Peer Review Sixth Results:
+## High-level read of the updated results
+
+From what you’ve shared, the *direction* of the results is coherent and encouraging: SSL transfer helps the most when labels are scarce, and the benefit shrinks as label fraction increases. That trend shows up clearly in the multi-seed tables (PF/Line Flow) and in the cascade scaling story. 
+
+The strongest (and most publishable) updated story is **not** “SSL always wins by a lot,” but:
+
+* **SSL dramatically reduces training instability at extreme label scarcity on large graphs** (IEEE-118 cascade at 10% labels has huge scratch variance, while SSL is stable). 
+* With enough labels (≥50%), **both** scratch and SSL do very well, and the gap becomes small. 
+
+That’s a real and defensible contribution—*if you present it cleanly and avoid overclaiming*.
+
+---
+
+## Major issues that still need fixing (these will get you rejected or heavily questioned)
+
+### 1) Headline numbers in figures/text are inconsistent with your own multi-seed tables
+
+Your figures (and the WP status bullets) still emphasize things like:
+
+* “PF +37.1%, Line Flow +32.2% at 10% labels” 
+* and visually, the IEEE-118 curve showing “+809%” at 10% labels (from your plot).
+
+But your own multi-seed section reports **different** (more defensible) numbers:
+
+* PF: **+29.1%** at 10% (MAE) 
+* Line Flow: **+26.4%** at 10% (MAE) 
+* IEEE-118 cascade: **+234%** at 10% (F1) with high scratch variance 
+
+If a reviewer catches that your “headline” improvements don’t match your own “statistical significance” tables, they’ll assume cherry-picking—even if it’s accidental.
+
+**Fix:** regenerate every plot and every “WP summary” number *from the same multi-seed JSON/tables* you cite in Results.md, and delete (or clearly label) single-seed “representative run” numbers.
+
+---
+
+### 2) The “809% improvement” style is a presentation hazard (even if the phenomenon is real)
+
+Even your multi-seed IEEE-118 result is **+234%** at 10% labels  —which is already eyebrow-raising. Your plot showing **809%** will trigger “this is a ratio artifact” objections (because relative gain explodes when the denominator is near 0).
+
+You *do* correctly explain the failure mode (“scratch predicts all positives,” etc.) and emphasize variance reduction, which is good. 
+But the *graphic* still encourages skepticism.
+
+**Fix (recommended for publication):**
+
+* Report **absolute F1 gain** (e.g., +0.61) alongside relative %.
+* Make PR-AUC a primary metric in the main plot for IEEE-118 (more stable under imbalance), and keep F1 as secondary.
+
+---
+
+### 3) “SSL is essential” is too strong as a blanket claim
+
+Your own text already admits convergence at higher label fractions (“both methods excellent”). 
+So “essential” should be scoped to a condition like **“essential for stable learning on IEEE-118 at ≤10–20% labels under severe imbalance.”**
+
+Otherwise, reviewers will say: “It’s not essential; it’s helpful in low-label regimes.”
+
+---
+
+### 4) Trivial baseline code still contains a serious evaluation leak
+
+In `trivial_baselines.py`, the `threshold_baseline(...)` function explicitly **tunes the threshold on the same set it evaluates on**, and in `main()` it’s called using the test features/labels. 
+
+Even if this baseline isn’t central, it’s enough to damage credibility (“if one piece leaks, what else leaks?”).
+
+**Fix:** delete or hard-disable the leaky baseline function, and ensure `main()` only calls the “proper” baseline that tunes on train/val and evaluates on test.
+
+---
+
+### 5) One of your “physics metrics” is not valid as written (uses ground-truth to define limits)
+
+In `train_pf_opf.py`, `compute_opf_physics_metrics()` constructs a line “rating” from **`flow_true.abs().max()`**, i.e., derived from the ground-truth flows. 
+
+That makes any “thermal violation rate” metric meaningless as a physics-consistency claim (because the constraint is defined using the label).
+
+**Fix:** use the actual thermal limit from the dataset edge attributes (rating) if available; otherwise drop the metric.
+
+---
+
+## Smaller but still important credibility/clarity issues
+
+### 6) Task naming is still muddy (OPF vs Line Flow)
+
+Your Results.md now uses “Line Flow Prediction Task,” which is clearer. 
+But the code and earlier artifacts still call it “OPF” in places (e.g., `OPFModel`). 
+
+For power-systems reviewers, “OPF” means predicting OPF decision variables/objective under constraints—not just predicting line flows.
+
+**Fix:** either:
+
+* rename everywhere to **Line Flow Prediction**, or
+* actually add an OPF target (generator setpoints/cost/feasibility) and evaluate that.
+
+---
+
+### 7) Documentation vs implementation mismatches (easy to fix, but reviewers notice)
+
+Example: `pretrain_ssl_pf.py` header says “masked voltage reconstruction,” but the actual PF SSL is masked **injection** reconstruction. 
+Also your Results.md narrative sometimes describes the OPF SSL objective differently than the code (edge params vs edge flows). 
+
+These are not “fatal,” but they create distrust.
+
+---
+
+### 8) Evidence gap for some claimed “completed” work packages
+
+Your WP table claims things like explainability AUC-ROC 0.93 and robustness +22% at 1.3× load. 
+I can’t verify those from the artifacts you shared here (no corresponding result tables/JSON in what I can inspect). If those results exist, make them first-class: a table, a figure, and the script/command that produces them.
+
+---
+
+## What you should change before submitting (prioritized checklist)
+
+### Blockers (do these before you submit anywhere)
+
+1. **Unify all reported numbers** (plots, tables, WP bullet highlights) to match your **multi-seed** summaries. 
+2. **Remove/disable the leaky baseline** in `trivial_baselines.py`. 
+3. **Fix/drop the OPF “thermal violation” metric** that derives limits from `flow_true`. 
+4. Update wording so claims match your own results: **“essential at very low label fractions on large grids”**, not universally essential. 
+
+### Strongly recommended (raises acceptance probability materially)
+
+5. Replace “809%”-style headline plots with:
+
+   * mean ± std across seeds, and
+   * absolute gains (ΔF1 / ΔMAE) alongside relative %.
+6. Add at least one baseline for the *SSL method itself* (e.g., generic graph SSL / masked autoencoder without physics weighting) so reviewers can see what’s uniquely “grid-specific.”
+7. Tighten the OPF/LineFlow naming and scope.
+
+### Nice-to-have (depends on venue)
+
+8. Cross-grid transfer (pretrain on one grid, finetune on another) is a very strong story if you can add it.
+
+---
+
+## Verdict: ready to publish?
+
+**Not yet ready for publication as-is.**
+
+The core findings look promising and the multi-seed cascade scaling result is genuinely strong, but the current package still has **credibility blockers**: inconsistent headline numbers vs multi-seed tables , at least one **explicit test-set leakage** in the baseline code , and a “physics metric” that uses ground truth to define constraints .
+
+If you fix those three categories (consistency, leakage, physics-metric validity) and regenerate all figures/tables from the same reproducible multi-seed outputs, then **yes—this becomes publishable**, especially for a workshop / applied ML venue.

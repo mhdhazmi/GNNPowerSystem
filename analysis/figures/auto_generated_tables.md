@@ -33,7 +33,7 @@
 | 50% | 0.0089 | 0.0071 | **+20.3%** |
 | 100% | 0.0056 | 0.0047 | **+15.1%** |
 
-### Optimal Power Flow (IEEE 24-bus)
+### Line Flow Prediction (IEEE 24-bus)
 
 | Label % | Scratch MAE | SSL MAE | Improvement |
 |---------|------------|--------|-------------|

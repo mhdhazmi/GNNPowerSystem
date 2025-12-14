@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-Power Flow (PF) and Optimal Power Flow (OPF) Training Script
+Power Flow (PF) and Line Flow Prediction Training Script
 
-Trains models for node-level voltage prediction (PF) and edge-level flow prediction (OPF).
-Demonstrates SSL transfer benefits for these tasks.
+Trains models for:
+- PF: Node-level voltage prediction
+- Line Flow (--task opf): Edge-level power flow prediction
+
+Note: The "opf" task flag is a historical artifact; the task predicts line flows,
+not OPF decision variables (dispatch/cost). See paper for terminology clarification.
 
 Usage:
     # Train PF from scratch
@@ -15,7 +19,7 @@ Usage:
     # Run comparison (SSL vs scratch at different label fractions)
     python scripts/train_pf_opf.py --task pf --run_comparison
 
-    # Train OPF
+    # Train Line Flow prediction
     python scripts/train_pf_opf.py --task opf --run_comparison
 """
 
@@ -179,9 +183,13 @@ def compute_physics_metrics(model, loader, device, task: str):
             flow_pred = outputs["flow_pred"]
             flow_true = batch.y
 
-            # Rating is typically edge_attr[:, -1] or computed
-            # Use relative loading based on max flow for now
-            rating = flow_true.abs().max(dim=1).values + 1e-8
+            # Rating is in edge_attr[:, -1] (last column = thermal limit)
+            # Use actual rating from dataset, NOT derived from ground-truth flows
+            if batch.edge_attr.shape[1] >= 2:
+                rating = batch.edge_attr[:, -1].abs() + 1e-8  # Last column is rating
+            else:
+                # Fallback: skip thermal metrics if rating not available
+                rating = torch.ones(flow_pred.shape[0], device=flow_pred.device)
 
             metrics = compute_thermal_violations(flow_pred, flow_true, rating)
             all_physics.append(metrics)

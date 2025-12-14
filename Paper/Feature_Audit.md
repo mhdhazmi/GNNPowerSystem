@@ -28,7 +28,7 @@ After a thorough code audit, **the implementation does NOT have label leakage**.
 
 **Verdict: NO LEAKAGE**
 
-### Optimal Power Flow (OPF) Task
+### Line Flow Prediction Task
 
 | Component | Features |
 |-----------|----------|

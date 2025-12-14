@@ -828,9 +828,9 @@ Scratch degrades rapidly.
 
 ### Implications for Deployment
 
-1. **SSL pretraining is essential for production systems**
+1. **SSL pretraining improves robustness for production systems**
    - Real grids experience load variations constantly
-   - SSL provides 22% better performance under realistic conditions
+   - SSL provides 22% better performance under OOD conditions (1.3x load)
 
 2. **Topology monitoring is critical**
    - Both models degrade severely with line outages
