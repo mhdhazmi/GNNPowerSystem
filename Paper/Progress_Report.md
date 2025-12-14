@@ -67,7 +67,7 @@ PhysicsGuidedEncoder (4 layers, 128 hidden dim)
    ▼
 Task-Specific Heads
    ├── PowerFlowHead: V, sin(θ), cos(θ) prediction
-   ├── OPFHead: Generator dispatch with masking
+   ├── LineFlowHead: Edge flow prediction (P_ij, Q_ij)
    └── CascadeBinaryHead: Graph-level classification
 ```
 
@@ -76,7 +76,7 @@ Task-Specific Heads
 - Edge features include physical quantities (reactance, thermal rating, power flow)
 - Architecture respects graph structure of power networks
 
-**Model Parameters:** 274,306 (PF), 167,688 (OPF), 168,000 (Cascade)
+**Model Parameters:** 274,306 (PF), 167,688 (Line Flow), 168,000 (Cascade)
 
 ### 2.2 Self-Supervised Pretraining
 

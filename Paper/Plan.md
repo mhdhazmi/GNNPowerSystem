@@ -1263,3 +1263,158 @@ If you want a verdict for a real peer-reviewed venue (IEEE TPS / TSTE / NeurIPS 
 * and close the label-leakage loopholes.
 
 If you want, share the repo next—specifically I’d look for: (1) how SSL pretraining targets are formed, (2) how label-fraction subsets are sampled, (3) early stopping + threshold selection logic, and (4) what exactly goes into node/edge features for cascade. That’s where “paper-valid” vs “looks-good-but-leaks” is decided.
+
+
+# Peer Review Forth Results:
+## What the updated results genuinely show (the good news)
+
+### 1) SSL gives a **real** lift in low‑label regimes, and it also improves stability
+
+Your multi‑seed results are the strongest part of the update. For cascade prediction on **IEEE‑118**, at **10% labels** you report:
+
+* Scratch: **0.2617 ± 0.2426**
+* SSL: **0.8743 ± 0.0505**  
+
+That’s not just an improvement in mean performance — the **variance collapses** (std ~0.24 → ~0.05), which is exactly the kind of “validity” signal reviewers like because it suggests SSL is making the training *more reliable*, not just luckier.
+
+You also did the same multi‑seed reporting for **IEEE‑24** cascades (nice), where SSL helps but more modestly:
+
+* Scratch: **0.7528 ± 0.0291**
+* SSL: **0.8599 ± 0.0117**  
+
+This matches the narrative “SSL matters more as the grid gets larger / harder / more imbalanced”.
+
+### 2) Power Flow and “OPF/line‑flow” show consistent improvements vs scratch
+
+Your PF table shows MAE reductions across label fractions (largest gains at low‑label):
+
+* PF MAE improvements reported: **~37.1%** at 10% labels down to **~15.1%** at 100% labels 
+
+Your “OPF” table similarly shows MAE reductions (again biggest at low‑label) 
+
+So: directionally, the core story “SSL improves sample efficiency” is supported.
+
+---
+
+## Major validity risks / reasons reviewers could reject (these are fixable, but **must** be fixed)
+
+### A) You currently have **internal contradictions** about what SSL is reconstructing (this is a red flag)
+
+In one place you explicitly claim *no target overlap*:
+
+* PF SSL reconstructs **masked injections** (not voltage)
+* “OPF/Line Flow” SSL reconstructs **line parameters** (x, rating), not flows  
+
+But elsewhere you describe SSL as reconstructing *the downstream targets themselves*:
+
+* “mask 15% of node voltage features (V)” and “mask 15% of edge flow features (P_ij)”  
+
+If a reviewer sees this, they will assume **label leakage** (or at least unclear protocol). Even if your *code* is correct, the *paper* won’t survive review with contradictory descriptions.
+
+**What to do:** pick one protocol (ideally the leakage‑safe one: injections + line parameters), delete/replace all conflicting text, and add a single “Leakage Avoidance” paragraph that explicitly states what is never used in SSL pretraining.
+
+---
+
+### B) You are calling something “OPF” that is not OPF (naming + problem definition issue)
+
+One section literally defines OPF as “predict power flow magnitudes on edges”  — that’s **line flow prediction / PF‑derived**, not optimal power flow (dispatch/cost/constraints).
+
+This matters because OPF has established baselines and evaluation norms. If you call it OPF but don’t predict generator set‑points, costs, or constraint activity, reviewers will mark it as **misframed**.
+
+**What to do (choose one):**
+
+1. **Rename the task** everywhere to *Line Flow Prediction* (or PF‑edge regression).
+   **OR**
+2. Actually implement OPF targets (dispatch + cost + feasibility/violations) and evaluate them properly.
+
+Right now, mixing “OPF” terminology with flow prediction weakens the paper’s credibility.
+
+---
+
+### C) The cascade results are strong, but your reporting still suggests possible **evaluation/selection bugs**
+
+In `all_results.json`, there are runs where scratch reports **best_val_f1 = 0.0** but test F1 is non‑trivial (e.g., 0.286) , and another where scratch test F1 is 0.724 with best_val_f1 still 0.0 .
+
+That combination is… unusual. It often means at least one of these is happening:
+
+* best‑model selection is not actually based on the metric you think it is,
+* validation F1 is being computed incorrectly (thresholding mismatch, wrong labels, wrong averaging),
+* thresholds are being tuned using test data (even accidentally),
+* or logging is wrong / stale.
+
+**What to do:** before submission, you need a clean statement like:
+
+> “We select checkpoints by validation PR‑AUC (or F1) and tune the classification threshold on validation only; test is evaluated once with the frozen threshold.”
+
+And you need the code to match that.
+
+If you can’t confidently explain how `best_val_f1` can be 0.0 while test F1 is 0.724, reviewers will not trust any of the cascade numbers.
+
+---
+
+### D) You appear to still have **two different IEEE‑118 baseline stories** floating around
+
+One part shows the “pos_weight baseline that collapses” (scratch ~0.099 at all label fractions) , while your newer work uses focal loss + stratified sampling and produces strong scratch scores at ≥20% labels .
+
+This is not automatically wrong — but it **must be framed honestly**:
+
+* If you present the collapsed baseline in the paper, reviewers will ask “why didn’t you tune the baseline?”
+* If you present the focal‑loss baseline, your “SSL is essential” wording must soften, because scratch is actually very good at 50%/100%.
+
+**Best practice:** include both as an ablation:
+
+* “Naive BCE+pos_weight can collapse at 118‑bus low label; focal loss fixes this; SSL still improves mean + stability.”
+
+That turns a potential weakness into a useful insight.
+
+---
+
+### E) Cascade prediction may be **too easy** if the inputs include near‑deterministic signals
+
+Your “Prediction‑Time Observability” description says you use voltage/flows/loading derived from PF/state estimation  and you even acknowledge that cascades are strongly signaled by high loading near limits .
+
+That raises the obvious reviewer question:
+
+> “Does a trivial baseline like max(line_loading) > τ already get near‑perfect F1?”
+
+If yes, then the *scientific contribution* is weaker (even if engineering is solid).
+
+**What to do:** add two baselines + one ablation:
+
+* Baseline 1: **max loading threshold** (or a logistic regression on a few scalar summary stats)
+* Baseline 2: **XGBoost/RandomForest** on tabular engineered features
+* Ablation: remove flow/loading features and test whether topology/SSL still helps.
+
+Without this, reviewers may argue you are learning an obvious rule.
+
+---
+
+## So… is it ready to publish?
+
+### Verdict: **Not submission‑ready yet**, but **absolutely worth publishing** after a focused cleanup pass.
+
+Your core claim (“SSL improves sample efficiency and stability for grid GNN tasks, especially large/imbalanced cascade prediction”) is supported by the multi‑seed tables and is publishable in principle. 
+
+However, I would not submit to a serious venue **yet** because there are several “reviewer‑fatal” issues that are about *validity and clarity*, not model performance:
+
+**Must‑fix before submission**
+
+1. Remove the SSL objective contradictions and explicitly guarantee no leakage.  
+2. Fix the OPF naming (rename or implement actual OPF). 
+3. Audit/repair the model‑selection + thresholding pipeline so validation metrics make sense (no “best_val_f1 = 0.0 but test is great”). 
+4. Add trivial baselines + a feature ablation for cascade prediction to show you’re not just learning a threshold on loading. 
+5. Add seed variability (mean±std) for PF + line‑flow too, not only cascade.
+
+**If you do those 5 items**, then yes: you have a credible, valid, publishable paper (at least workshop / applied ML-for-power venues; and potentially a stronger venue depending on how deep the physics/robustness analysis goes).
+
+---
+
+## If you want, I can do a much stricter “publication audit”
+
+Right now, the biggest open question is whether the contradictory SSL descriptions are just stale text or reflect real leakage in some runs. If you share the repo, the key thing to check is:
+
+* exactly which tensors go into SSL pretraining targets,
+* whether SSL pretraining includes any test scenarios (transductive vs inductive),
+* and how validation thresholds/checkpoints are selected.
+
+That audit is what will move this from “promising” to “I’d bet on acceptance.”

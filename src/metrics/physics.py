@@ -290,7 +290,13 @@ def compute_embedding_electrical_consistency(
     euclidean_dist = torch.norm(src_emb - dst_emb, dim=1)
 
     # Physical: admittance (inverse reactance)
-    reactance = edge_attr[:, 2].abs() + 1e-8
+    # Handle different edge feature layouts:
+    # - Cascade: [P_flow, Q_flow, X, rating] - X at index 2
+    # - PF/OPF: [X, rating] - X at index 0
+    if edge_attr.size(1) >= 3:
+        reactance = edge_attr[:, 2].abs() + 1e-8
+    else:
+        reactance = edge_attr[:, 0].abs() + 1e-8
     admittance = 1.0 / reactance
 
     # Expectation: high admittance edges should have high similarity

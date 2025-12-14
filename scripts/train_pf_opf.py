@@ -556,6 +556,147 @@ def run_comparison(args):
     return all_results
 
 
+def run_multi_seed_comparison(args):
+    """Run comparison across multiple seeds and compute statistics."""
+    import numpy as np
+
+    device = get_device()
+    label_fractions = [0.1, 0.2, 0.5, 1.0]
+    seeds = args.seeds if args.seeds else [42, 123, 456, 789, 1337]
+
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_dir = Path(args.output_dir) / f"{args.task}_multiseed_{args.grid}_{timestamp}"
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    print("=" * 70)
+    print(f"{args.task.upper()} MULTI-SEED COMPARISON: SSL-PRETRAINED vs SCRATCH")
+    print("=" * 70)
+    print(f"Grid: {args.grid}")
+    print(f"Task: {args.task}")
+    print(f"Seeds: {seeds}")
+    print(f"Label fractions: {label_fractions}")
+    print(f"Device: {device}")
+    print("=" * 70)
+
+    # Find pretrained model
+    pretrained_path = None
+    if args.pretrained:
+        pretrained_path = args.pretrained
+    else:
+        # Look for task-specific SSL model
+        ssl_dirs = list(Path(args.output_dir).glob(f"ssl_*_{args.grid}_*"))
+        if ssl_dirs:
+            latest = max(ssl_dirs, key=lambda p: p.stat().st_mtime)
+            pretrained_path = latest / "best_model.pt"
+            if pretrained_path.exists():
+                print(f"Found pretrained model: {pretrained_path}")
+
+    all_results = []
+    aggregated = {}
+
+    for fraction in label_fractions:
+        aggregated[fraction] = {"scratch": [], "ssl": []}
+
+        for seed in seeds:
+            print(f"\n{'='*70}")
+            print(f"FRACTION: {fraction*100:.0f}% | SEED: {seed}")
+            print("=" * 70)
+
+            # Scratch
+            exp_dir = output_dir / f"scratch_frac{fraction}_seed{seed}"
+            exp_dir.mkdir(exist_ok=True)
+
+            result_scratch = run_single_experiment(
+                task=args.task,
+                grid=args.grid,
+                label_fraction=fraction,
+                pretrained_path=None,
+                hidden_dim=args.hidden_dim,
+                num_layers=args.num_layers,
+                epochs=args.epochs,
+                batch_size=args.batch_size,
+                lr=args.lr,
+                seed=seed,
+                output_dir=exp_dir,
+                device=device,
+            )
+            result_scratch["seed"] = seed
+            all_results.append(result_scratch)
+            aggregated[fraction]["scratch"].append(result_scratch["test_mae"])
+            print(f"  Scratch MAE: {result_scratch['test_mae']:.6f}")
+
+            # SSL (if available)
+            if pretrained_path:
+                exp_dir = output_dir / f"ssl_frac{fraction}_seed{seed}"
+                exp_dir.mkdir(exist_ok=True)
+
+                result_ssl = run_single_experiment(
+                    task=args.task,
+                    grid=args.grid,
+                    label_fraction=fraction,
+                    pretrained_path=str(pretrained_path),
+                    hidden_dim=args.hidden_dim,
+                    num_layers=args.num_layers,
+                    epochs=args.epochs,
+                    batch_size=args.batch_size,
+                    lr=args.lr,
+                    seed=seed,
+                    output_dir=exp_dir,
+                    device=device,
+                )
+                result_ssl["seed"] = seed
+                all_results.append(result_ssl)
+                aggregated[fraction]["ssl"].append(result_ssl["test_mae"])
+                print(f"  SSL MAE: {result_ssl['test_mae']:.6f}")
+
+    # Summary with statistics
+    print("\n" + "=" * 70)
+    print("MULTI-SEED RESULTS SUMMARY (mean ± std)")
+    print("=" * 70)
+    print(f"\n{'Fraction':<10} {'Scratch MAE':<20} {'SSL MAE':<20} {'Improvement':<15}")
+    print("-" * 65)
+
+    summary_stats = []
+    for fraction in label_fractions:
+        scratch_vals = aggregated[fraction]["scratch"]
+        ssl_vals = aggregated[fraction]["ssl"]
+
+        scratch_mean = np.mean(scratch_vals)
+        scratch_std = np.std(scratch_vals)
+        ssl_mean = np.mean(ssl_vals) if ssl_vals else 0
+        ssl_std = np.std(ssl_vals) if ssl_vals else 0
+
+        # For MAE, lower is better, so improvement = (scratch - ssl) / scratch * 100
+        improvement = (scratch_mean - ssl_mean) / scratch_mean * 100 if ssl_vals else 0
+
+        print(
+            f"{fraction*100:>6.0f}%   "
+            f"{scratch_mean:.6f}±{scratch_std:.6f}   "
+            f"{ssl_mean:.6f}±{ssl_std:.6f}   "
+            f"{improvement:+.1f}%"
+        )
+
+        summary_stats.append({
+            "label_fraction": fraction,
+            "scratch_mean": scratch_mean,
+            "scratch_std": scratch_std,
+            "ssl_mean": ssl_mean,
+            "ssl_std": ssl_std,
+            "improvement_pct": improvement,
+            "n_seeds": len(seeds),
+        })
+
+    # Save all results
+    with open(output_dir / "all_results.json", "w") as f:
+        json.dump(all_results, f, indent=2)
+
+    with open(output_dir / "summary_stats.json", "w") as f:
+        json.dump(summary_stats, f, indent=2)
+
+    print(f"\nResults saved to: {output_dir}")
+    return all_results, summary_stats
+
+
 def main():
     parser = argparse.ArgumentParser(description="PF/OPF Training")
     parser.add_argument("--task", type=str, default="pf", choices=["pf", "opf"])
@@ -564,6 +705,8 @@ def main():
     parser.add_argument("--from_scratch", action="store_true")
     parser.add_argument("--label_fraction", type=float, default=1.0)
     parser.add_argument("--run_comparison", action="store_true")
+    parser.add_argument("--run_multi_seed", action="store_true", help="Run multi-seed comparison (5 seeds)")
+    parser.add_argument("--seeds", type=int, nargs="+", help="Seeds to use for multi-seed experiments")
     parser.add_argument("--hidden_dim", type=int, default=128)
     parser.add_argument("--num_layers", type=int, default=4)
     parser.add_argument("--epochs", type=int, default=100)
@@ -574,7 +717,9 @@ def main():
 
     args = parser.parse_args()
 
-    if args.run_comparison:
+    if args.run_multi_seed:
+        run_multi_seed_comparison(args)
+    elif args.run_comparison:
         run_comparison(args)
     else:
         device = get_device()
