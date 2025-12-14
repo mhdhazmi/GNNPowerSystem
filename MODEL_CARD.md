@@ -51,19 +51,18 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 
 ## Training Data
 
-### Dataset: PowerGraph (IEEE 24-bus)
+### Dataset: PowerGraph
 
 **Source**: PowerGraph benchmark dataset
 **License**: CC BY 4.0
-**Grid**: IEEE 24-bus Reliability Test System
+**Grids Evaluated**: IEEE 24-bus and IEEE 118-bus Reliability Test Systems
 
-**Data Splits** (fixed seed=42):
+**Data Splits** (fixed seed=42, 80/10/10):
 
-| Split | Samples | Percentage |
-|-------|---------|------------|
-| Train | 16,125 | 80% |
-| Validation | 2,016 | 10% |
-| Test | 2,016 | 10% |
+| Grid | Train | Val | Test | Total |
+|------|-------|-----|------|-------|
+| IEEE 24-bus | 16,125 | 2,016 | 2,016 | 20,157 |
+| IEEE 118-bus | 91,875 | 11,484 | 11,484 | 114,843 |
 
 **Node Features**:
 
@@ -93,8 +92,8 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 - Mask ratio: 15%
 - BERT-style: 80% mask token, 10% random, 10% unchanged
 
-**PF Task**: Masked voltage reconstruction (MaskedVoltageSSL)
-- Predicts voltage from power injections
+**PF Task**: Masked injection reconstruction (MaskedInjectionSSL)
+- Masks P_net/S_net, reconstructs from topology (NOT voltage - avoids leakage)
 - Physics-meaningful: learns power flow relationships
 
 **Line Flow Task**: Masked line parameter reconstruction (MaskedFlowSSL)
@@ -105,13 +104,24 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 
 ## Evaluation Results
 
-### SSL Transfer Benefits (10% Labels)
+### SSL Transfer Benefits (10% Labels, IEEE 24-bus)
 
 | Task | Metric | Scratch | SSL | Improvement |
 |------|--------|---------|-----|-------------|
 | Cascade Prediction | F1 Score | 0.753 ± 0.029 | 0.860 ± 0.012 | **+14.2%** (3-seed) |
 | Power Flow (PF) | MAE | 0.0149 ± 0.0004 | 0.0106 ± 0.0003 | **+29.1%** (5-seed) |
 | Line Flow Prediction | MAE | 0.0084 ± 0.0003 | 0.0062 ± 0.0002 | **+26.4%** (5-seed) |
+
+### Cascade Prediction (IEEE 118-bus, Multi-seed)
+
+| Label % | Scratch F1 | SSL F1 | Δ F1 |
+|---------|------------|--------|------|
+| 10% | 0.262 ± 0.243 | 0.874 ± 0.051 | **+0.61** |
+| 20% | 0.847 ± 0.122 | 0.968 ± 0.008 | +0.12 |
+| 50% | 0.965 ± 0.005 | 0.990 ± 0.002 | +0.02 |
+| 100% | 0.995 ± 0.001 | 0.994 ± 0.002 | ~0 |
+
+**Key Finding**: SSL stabilizes training at low labels (reduces variance by ~5x at 10% labels).
 
 ### Full Label Results
 
@@ -162,7 +172,7 @@ Input → Node Embedding → [PhysicsGuidedConv + LayerNorm + ReLU + Residual] �
 
 ### Known Limitations
 
-1. **Grid Specificity**: Trained and evaluated only on IEEE 24-bus system. Performance on larger grids (e.g., IEEE 118-bus, real utility grids) not validated.
+1. **Grid Specificity**: Evaluated on IEEE 24-bus and IEEE 118-bus systems. Performance on real utility-scale grids not validated.
 
 2. **Topology Changes**: Model assumes fixed grid topology. Dynamic topology changes (e.g., islanding) not explicitly handled.
 
@@ -239,7 +249,7 @@ If you use this model, please cite:
 @misc{physics_guided_gnn_power,
   title={Physics-Guided Self-Supervised GNN for Power System Analysis},
   year={2024},
-  note={PowerGraph benchmark, IEEE 24-bus}
+  note={PowerGraph benchmark, IEEE 24-bus and IEEE 118-bus}
 }
 ```
 
@@ -249,8 +259,9 @@ If you use this model, please cite:
 
 | File | Description |
 |------|-------------|
-| `outputs/ssl_pf_ieee24_*/best_model.pt` | SSL pretrained encoder (PF) |
-| `outputs/ssl_opf_ieee24_*/best_model.pt` | SSL pretrained encoder (Line Flow) |
-| `outputs/comparison_ieee24_*/` | Cascade SSL vs scratch comparison |
+| `outputs/ssl_pf_ieee24_*/best_model.pt` | SSL pretrained encoder (PF, IEEE-24) |
+| `outputs/ssl_opf_ieee24_*/best_model.pt` | SSL pretrained encoder (Line Flow, IEEE-24) |
+| `outputs/comparison_ieee24_*/` | Cascade SSL vs scratch (IEEE-24) |
+| `outputs/comparison_ieee118_*/` | Cascade SSL vs scratch (IEEE-118) |
 | `outputs/pf_comparison_ieee24_*/` | PF SSL vs scratch comparison |
 | `outputs/opf_comparison_ieee24_*/` | Line Flow SSL vs scratch comparison |

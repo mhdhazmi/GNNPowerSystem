@@ -379,18 +379,22 @@ def run_single_experiment(
 
     # Load pretrained encoder if provided
     init_type = "scratch"
+    pretrained_loaded = False
     if pretrained_path:
         checkpoint = torch.load(pretrained_path, weights_only=False, map_location=device)
         if "encoder_state_dict" in checkpoint:
-            # Need to handle dimension mismatch for PF task
-            # SSL was trained with 3 node features, PF has 2
             try:
                 model.encoder.load_state_dict(checkpoint["encoder_state_dict"])
                 init_type = "ssl_pretrained"
+                pretrained_loaded = True
                 print(f"  Loaded pretrained encoder from: {pretrained_path}")
             except RuntimeError as e:
-                print(f"  WARNING: Could not load pretrained encoder (dimension mismatch): {e}")
-                print("  Training from scratch instead.")
+                # FAIL HARD: Do not silently fall back to scratch training
+                raise RuntimeError(
+                    f"Failed to load pretrained encoder from {pretrained_path}: {e}\n"
+                    "This is likely a dimension mismatch. Use --from_scratch if you "
+                    "want to train from scratch, or provide a compatible pretrained model."
+                )
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=lr, weight_decay=1e-4)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs)
@@ -434,6 +438,7 @@ def run_single_experiment(
     result = {
         "task": task,
         "init_type": init_type,
+        "pretrained_loaded": pretrained_loaded,  # Explicit logging for audit
         "label_fraction": label_fraction,
         "train_samples": len(train_dataset),
         "best_epoch": best_epoch,

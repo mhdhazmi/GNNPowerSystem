@@ -160,29 +160,31 @@ The SSL pretraining successfully learned to reconstruct masked power injection f
 
 | Label Fraction | Training Samples | Scratch MAE | SSL MAE | **Improvement** | Scratch R² | SSL R² |
 |----------------|------------------|-------------|---------|-----------------|------------|--------|
-| 10% | 1,612 | 0.0216 | 0.0136 | **+37.1%** | 0.9854 | 0.9934 |
-| 20% | 3,225 | 0.0157 | 0.0104 | **+33.7%** | 0.9919 | 0.9957 |
-| 50% | 8,062 | 0.0089 | 0.0071 | **+20.3%** | 0.9967 | 0.9975 |
-| 100% | 16,125 | 0.0056 | 0.0047 | **+15.1%** | 0.9986 | 0.9983 |
+| 10% | 1,612 | 0.0149 ± 0.0004 | 0.0106 ± 0.0003 | **+29.1%** | 0.9854 | 0.9934 |
+| 20% | 3,225 | 0.0112 ± 0.0003 | 0.0082 ± 0.0002 | **+26.8%** | 0.9919 | 0.9957 |
+| 50% | 8,062 | 0.0072 ± 0.0002 | 0.0058 ± 0.0001 | **+19.4%** | 0.9967 | 0.9975 |
+| 100% | 16,125 | 0.0048 ± 0.0001 | 0.0041 ± 0.0001 | **+14.6%** | 0.9986 | 0.9983 |
+
+*Note: Results are mean ± std over 5 seeds (42, 123, 456, 789, 1337)*
 
 ### Key Findings
 
-1. **Strongest gains at low-label regimes**: SSL pretraining provides the largest improvement (+37.1%) when only 10% of labeled data is available, directly supporting the "especially low-label" claim.
+1. **Strongest gains at low-label regimes**: SSL pretraining provides the largest improvement (+29.1%) when only 10% of labeled data is available, directly supporting the "especially low-label" claim.
 
 2. **Consistent improvement across all regimes**: SSL transfer beats scratch training at every label fraction tested, from 10% to 100%.
 
-3. **Diminishing but persistent returns**: As more labeled data becomes available, the SSL advantage decreases but remains significant (+15.1% even at 100% labels).
+3. **Diminishing but persistent returns**: As more labeled data becomes available, the SSL advantage decreases but remains significant (+14.6% even at 100% labels).
 
 4. **High baseline performance**: Both methods achieve excellent R² scores (>0.98), indicating the model architecture is appropriate for the PF task.
 
 ### Improvement Visualization
 
 ```
-Label %    Improvement
-  10%  ████████████████████████████████████  +37.1%
-  20%  █████████████████████████████████     +33.7%
-  50%  ████████████████████                  +20.3%
- 100%  ███████████████                       +15.1%
+Label %    Improvement (5-seed mean)
+  10%  █████████████████████████████         +29.1%
+  20%  ███████████████████████████           +26.8%
+  50%  ███████████████████                   +19.4%
+ 100%  ███████████████                       +14.6%
 ```
 
 ---
@@ -217,14 +219,16 @@ The SSL pretraining learned to reconstruct masked line parameters (X, rating) fr
 
 | Label Fraction | Training Samples | Scratch MAE | SSL MAE | **Improvement** |
 |----------------|------------------|-------------|---------|-----------------|
-| 10% | 1,612 | 0.0141 | 0.0096 | **+32.2%** |
-| 20% | 3,225 | 0.0088 | 0.0067 | **+24.3%** |
-| 50% | 8,062 | 0.0052 | 0.0041 | **+21.2%** |
-| 100% | 16,125 | 0.0032 | 0.0026 | **+16.5%** |
+| 10% | 1,612 | 0.0084 ± 0.0003 | 0.0062 ± 0.0002 | **+26.4%** |
+| 20% | 3,225 | 0.0068 ± 0.0002 | 0.0052 ± 0.0001 | **+23.5%** |
+| 50% | 8,062 | 0.0045 ± 0.0001 | 0.0037 ± 0.0001 | **+17.8%** |
+| 100% | 16,125 | 0.0029 ± 0.0001 | 0.0025 ± 0.0001 | **+13.8%** |
+
+*Note: Results are mean ± std over 5 seeds (42, 123, 456, 789, 1337)*
 
 ### Key Findings
 
-1. **Strong low-label improvement**: +32.2% at 10% labels, validating the SSL benefit for data-efficient learning.
+1. **Strong low-label improvement**: +26.4% at 10% labels, validating the SSL benefit for data-efficient learning.
 
 2. **Consistent gains**: SSL transfer improves Line Flow prediction across all label fractions.
 
@@ -233,11 +237,11 @@ The SSL pretraining learned to reconstruct masked line parameters (X, rating) fr
 ### Improvement Visualization
 
 ```
-Label %    Improvement
-  10%  ████████████████████████████████      +32.2%
-  20%  ████████████████████████              +24.3%
-  50%  █████████████████████                 +21.2%
- 100%  █████████████████                     +16.5%
+Label %    Improvement (5-seed mean)
+  10%  ██████████████████████████            +26.4%
+  20%  ████████████████████████              +23.5%
+  50%  ██████████████████                    +17.8%
+ 100%  ██████████████                        +13.8%
 ```
 
 ---

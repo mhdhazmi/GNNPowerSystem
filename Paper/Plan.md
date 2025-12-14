@@ -1747,3 +1747,181 @@ I can’t verify those from the artifacts you shared here (no corresponding resu
 The core findings look promising and the multi-seed cascade scaling result is genuinely strong, but the current package still has **credibility blockers**: inconsistent headline numbers vs multi-seed tables , at least one **explicit test-set leakage** in the baseline code , and a “physics metric” that uses ground truth to define constraints .
 
 If you fix those three categories (consistency, leakage, physics-metric validity) and regenerate all figures/tables from the same reproducible multi-seed outputs, then **yes—this becomes publishable**, especially for a workshop / applied ML venue.
+
+
+
+# Peer Review Seventh Results:
+I went through the updated **results + figures**, and cross-checked them against the **writeups** (`Results.md`, `Progress_Report.md`, `MODEL_CARD.md`, `Feature_Audit.md`) and the **code** you shared (notably `train_pf_opf.py`, `pretrain_ssl_pf.py`, `trivial_baselines.py`, plus the result artifacts).
+
+There’s real progress here (especially the move toward multi-seed reporting and the feature audit), but there are still several *publication-blocking* issues—mostly around **consistency, experimental hygiene, and clarity of task definitions**.
+
+---
+
+## What looks solid now
+
+### 1) The feature audit is a meaningful improvement
+
+`Feature_Audit.md` clearly enumerates inputs/targets per task and explicitly checks for target leakage. For example, PF is framed as predicting voltage magnitude from injection-style node features (and not feeding the target back in), and the line-flow task is framed as predicting edge flows from node + edge features. 
+
+That kind of artifact is exactly what reviewers ask for.
+
+### 2) Multi-seed evidence supports the core “SSL helps low-label / stabilizes training” claim
+
+Your *multi-seed* cascade results on IEEE-24 show a consistent SSL lift at low label fractions (e.g., at 10% labels: **0.7528±0.0291 → 0.8603±0.0123**). 
+
+And the IEEE-118 cascade experiment is especially compelling because it shows **high scratch variance** and **much lower SSL variance** at 10% labels (**0.262±0.243 → 0.874±0.051**). 
+That supports the “SSL stabilizes learning” narrative.
+
+### 3) Regression tasks show multi-seed improvement (but see consistency issues below)
+
+In one of your consolidated result tables, at 10% labels:
+
+* **Power Flow (MAE)**: 0.0149±0.0005 → 0.0106±0.0002 (**~29.1% reduction**)
+* **Line Flow (MAE)**: 0.0084±0.0000 → 0.0062±0.0002 (**~26.4% reduction**) 
+
+Those are believable effect sizes for SSL transfer in low-label regimes.
+
+---
+
+## Major problems that still need fixing (publication blockers)
+
+### 1) Your documentation and code disagree in multiple places
+
+This is the single biggest “not ready” signal.
+
+* `Feature_Audit.md` explicitly flags that the **Progress Report’s SSL objective description is wrong** (it says “mask voltage features,” but the implementation is masking injections). 
+* Worse: this mismatch exists **inside the code itself**—the docstring describes a voltage-masking objective, while the implemented class is `MaskedInjectionSSL`. 
+
+Reviewers will absolutely catch this. It makes the work look unreliable even if the results are good.
+
+**Fix:** Pick one true definition of the SSL objective and update *all three*: paper text, progress report, and code docstrings. Then re-run the final experiments with that definition pinned.
+
+---
+
+### 2) You have conflicting “final numbers” across tables/figures
+
+Right now it’s not possible to tell which results are the authoritative ones.
+
+Examples:
+
+* One table/figure set still reports **809% improvement** for IEEE-118 cascade at 10% labels , while your multi-seed summary supports a much more defensible **~234% mean relative gain** (and ΔF1 ≈ +0.61). 
+* You also have PF/line-flow improvements reported as **37.1% / 32.2%** in one place  versus **29.1% / 26.4%** in the multi-seed summary .
+
+This looks like a mixture of **single-seed** and **multi-seed mean** results being presented interchangeably.
+
+**Fix:** For publication, you need a single “main results” table generated from a single script, using a single evaluation definition, with seed count stated (and ideally error bars/CI).
+
+---
+
+### 3) A baseline script has test-set leakage
+
+In `trivial_baselines.py`, the `threshold_baseline(...)` function selects its threshold using `labels_test` (via `precision_recall_curve(features_test, labels_test)`), which is test-set leakage. 
+
+Even if you don’t “headline” that baseline, the presence of a leaky baseline in the repo is a red flag for reviewers (“what else leaked?”).
+
+**Fix:** Remove/disable the leaky baseline path entirely and only keep the proper one (threshold tuned on validation, then applied to test).
+
+---
+
+### 4) Your split specification is inconsistent across config vs implementation
+
+Your config file specifies **train/val/test = 0.8/0.1/0.1**. 
+But the dataset split code shows defaults like **train_frac=0.75, val_frac=0.08** (so test becomes 0.17). 
+
+That means:
+
+* different runs might be using different splits, and
+* the paper may be describing a split that isn’t what the code executed.
+
+**Fix:** Make the split ratios *single-source-of-truth* (config-driven), and log/export the exact index lists used in each run.
+
+---
+
+### 5) The “OPF” task is not clearly OPF (it looks like “optimal flow labels”)
+
+Your dataset logic describes the “opf” task as: **predict P_flow, Q_flow on edges**, using node features and edge parameters, and explicitly not including flow info in edge inputs. 
+
+That can be a valid surrogate task, but calling it “OPF” without evaluating **OPF-relevant outputs** (generator dispatch, cost, constraint satisfaction feasibility) is likely to get criticized.
+
+**Fix options (pick one):**
+
+* Rename it to **“Optimal line-flow prediction”** or **“OPF-induced flow prediction”**, *or*
+* Actually predict OPF decision variables and report constraint violation + objective gap, etc.
+
+---
+
+### 6) You have multiple versions of the same training logic (and at least one is invalid)
+
+I found evidence of two conflicting approaches for thermal limit evaluation:
+
+* One version derives `rating` from **ground-truth flows** (which makes “thermal violations” meaningless as an evaluation of feasibility). 
+* Another version correctly uses the dataset edge rating (`edge_attr[:, -1]`). 
+
+If both exist in your materials, reviewers will question which one produced the reported numbers.
+
+**Fix:** Ensure only the “use true rating from data” logic exists in the final repo; delete old versions.
+
+---
+
+### 7) “SSL” runs can silently fall back to scratch training
+
+Your PF/OPF training script includes a fallback: if loading pretrained weights fails (often due to dimension mismatch), it proceeds by training from scratch. 
+
+That is dangerous for publication because it can silently contaminate “SSL vs scratch” comparisons.
+
+**Fix:** Make this a **hard failure** unless an explicit flag says “allow fallback,” and always log a “pretrained_loaded: true/false” field into the results JSON.
+
+---
+
+### 8) Some repo content looks like placeholder code
+
+Parts of the repository dump include placeholder feature extraction and edge construction (e.g., zero edge_index). 
+
+If that placeholder code is reachable or appears in the released codebase, it will undermine reproducibility.
+
+---
+
+### 9) The model card contradicts the claimed scope
+
+The model card states the model was trained/evaluated only on IEEE-24 and that larger grids aren’t validated. 
+But your results include IEEE-118 claims. This must be reconciled.
+
+---
+
+## Specific issues in the figures you pasted
+
+A few presentation issues that will trigger reviewer nitpicks:
+
+* Reporting **percent improvement in F1** can be extremely misleading when the baseline is near zero (it’s how you end up with 800%+ numbers). Use **ΔF1** or show both absolute and relative. Your multi-seed IEEE-118 result already supports a strong ΔF1 story. 
+* The “multi-task normalized performance” plot can be misread because MAE is “lower is better”; if you keep a combined chart, you need consistent directionality (e.g., convert MAE to “1 − normalized error” or explicitly label “lower is better”).
+
+---
+
+## Publication readiness verdict
+
+**Verdict: Not ready to publish yet (for a peer-reviewed venue).**
+
+The core experimental signal is promising and *could be publishable*, but right now the package has too many inconsistencies that reviewers will interpret as “the experiment pipeline is not controlled”:
+
+* conflicting reported numbers across artifacts  
+* documentation/code mismatches about the SSL objective  
+* a baseline script with test leakage 
+* inconsistent split definitions  
+* potential silent fallback from “SSL” to scratch 
+
+If you fix those items and regenerate *one* final results table + figure set from a single reproducible script, I think it becomes reasonable to submit.
+
+---
+
+## If you want the fastest path to “ready”
+
+If your goal is to get this into shape quickly, this is the shortest “must-do” checklist:
+
+1. **Freeze one code path** (one `Results.md`, one training script per task, no duplicate versions).
+2. **Fix baselines** (remove leaky threshold baseline). 
+3. **Unify splits** (config drives implementation, and log split indices).  
+4. **Make SSL loading non-silent** (fail hard if pretrained weights aren’t loaded). 
+5. **Make the “OPF” naming honest** (rename, or expand metrics to real OPF outputs). 
+6. **Regenerate all plots from the multi-seed summary** and remove the 809% headline. 
+
+If you want, I can produce a reviewer-style “camera-ready checklist” tailored to a specific target venue (workshop vs conference vs journal) based on the artifacts you already have—but the verdict above stands for general publication readiness.

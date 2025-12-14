@@ -400,10 +400,10 @@ class PowerGraphDataset(InMemoryDataset):
     def _create_splits(
         self,
         num_samples: int,
-        train_frac: float = 0.75,
-        val_frac: float = 0.08,
+        train_frac: float = 0.8,
+        val_frac: float = 0.1,
     ) -> Dict[str, np.ndarray]:
-        """Create train/val/test splits."""
+        """Create train/val/test splits (80/10/10 per configs/splits.yaml)."""
 
         if self.split_type == "blocked":
             # Blocked temporal split (no data leakage)

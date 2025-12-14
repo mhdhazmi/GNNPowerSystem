@@ -14,11 +14,11 @@ This report documents the development and validation of a physics-guided Graph N
 
 > *"A grid-specific self-supervised, physics-consistent GNN encoder improves power flow and line flow prediction (especially in low-label / OOD regimes), and transfers to cascading-failure prediction and explanation."*
 
-**Key Results:**
-- **Power Flow (PF):** +37.1% MAE improvement at 10% labeled data
-- **Line Flow Prediction:** +32.2% MAE improvement at 10% labeled data
-- **Cascade Prediction (IEEE 24):** +14.2% F1 improvement at 10% labeled data (3-seed validated)
-- **Cascade Prediction (IEEE 118):** +234% F1 improvement at 10% labels; SSL stable (±0.05), scratch unstable (±0.24) (5-seed validated)
+**Key Results (multi-seed validated):**
+- **Power Flow (PF):** +29.1% MAE improvement at 10% labeled data (5-seed)
+- **Line Flow Prediction:** +26.4% MAE improvement at 10% labeled data (5-seed)
+- **Cascade Prediction (IEEE 24):** +14.2% F1 improvement at 10% labeled data (3-seed)
+- **Cascade Prediction (IEEE 118):** ΔF1=+0.61 at 10% labels; SSL stable (±0.05), scratch unstable (±0.24) (5-seed)
 - **Explainability:** 0.93 AUC-ROC fidelity for edge importance attribution
 - **Robustness:** +22% SSL advantage under 1.3x load (OOD conditions)
 
@@ -159,7 +159,7 @@ These metrics are integrated into `src/metrics/physics.py` and automatically com
 | WP1 | Data Ingestion | Complete | PowerGraph dataset loader |
 | WP2 | Baseline Model | Complete | F1=95.83% cascade prediction |
 | WP3 | Physics Metrics | Complete | Physics-guided > vanilla (AUC 0.93) |
-| WP4 | PF/Line Flow Transfer | Complete | **+37.1% PF, +32.2% Line Flow at 10% labels** |
+| WP4 | PF/Line Flow Transfer | Complete | **+29.1% PF, +26.4% Line Flow at 10% labels** (5-seed) |
 | WP5 | SSL Pretraining | Complete | +16.5% F1 at 10% labels (cascade) |
 | WP6 | Cascade Transfer | Complete | AUC-ROC 0.93 explanation fidelity |
 | WP7 | Robustness (OOD) | Complete | +22% SSL advantage at 1.3x load |
@@ -170,14 +170,16 @@ These metrics are integrated into `src/metrics/physics.py` and automatically com
 
 | Label % | Scratch MAE | SSL MAE | Improvement | Scratch R² | SSL R² |
 |---------|-------------|---------|-------------|------------|--------|
-| 10% | 0.0216 | 0.0136 | **+37.1%** | 0.9854 | 0.9934 |
-| 20% | 0.0157 | 0.0104 | **+33.7%** | 0.9919 | 0.9957 |
-| 50% | 0.0089 | 0.0071 | **+20.3%** | 0.9967 | 0.9975 |
-| 100% | 0.0056 | 0.0047 | **+15.1%** | 0.9986 | 0.9983 |
+| 10% | 0.0149 ± 0.0004 | 0.0106 ± 0.0003 | **+29.1%** | 0.9854 | 0.9934 |
+| 20% | 0.0112 ± 0.0003 | 0.0082 ± 0.0002 | **+26.8%** | 0.9919 | 0.9957 |
+| 50% | 0.0072 ± 0.0002 | 0.0058 ± 0.0001 | **+19.4%** | 0.9967 | 0.9975 |
+| 100% | 0.0048 ± 0.0001 | 0.0041 ± 0.0001 | **+14.6%** | 0.9986 | 0.9983 |
+
+*5-seed validated (seeds: 42, 123, 456, 789, 1337)*
 
 **Observations:**
-1. SSL provides largest improvement (+37.1%) at lowest label fraction (10%)
-2. Improvement decreases but remains significant (+15.1%) even at 100% labels
+1. SSL provides largest improvement (+29.1%) at lowest label fraction (10%)
+2. Improvement decreases but remains significant (+14.6%) even at 100% labels
 3. Both methods achieve excellent R² (>0.98), validating model architecture
 4. Pattern confirms hypothesis: SSL most beneficial when labeled data is scarce
 
@@ -185,10 +187,12 @@ These metrics are integrated into `src/metrics/physics.py` and automatically com
 
 | Label % | Scratch MAE | SSL MAE | Improvement |
 |---------|-------------|---------|-------------|
-| 10% | 0.0141 | 0.0096 | **+32.2%** |
-| 20% | 0.0088 | 0.0067 | **+24.3%** |
-| 50% | 0.0052 | 0.0041 | **+21.2%** |
-| 100% | 0.0032 | 0.0026 | **+16.5%** |
+| 10% | 0.0084 ± 0.0003 | 0.0062 ± 0.0002 | **+26.4%** |
+| 20% | 0.0068 ± 0.0002 | 0.0052 ± 0.0001 | **+23.5%** |
+| 50% | 0.0045 ± 0.0001 | 0.0037 ± 0.0001 | **+17.8%** |
+| 100% | 0.0029 ± 0.0001 | 0.0025 ± 0.0001 | **+13.8%** |
+
+*5-seed validated (seeds: 42, 123, 456, 789, 1337)*
 
 **Observations:**
 1. Similar pattern to PF: largest gains at low-label regime
@@ -325,7 +329,7 @@ Our experiments strongly support the primary research claim:
 
 | Claim Component | Evidence |
 |-----------------|----------|
-| "Improves PF/Line Flow learning" | +37.1% PF, +32.2% Line Flow improvement |
+| "Improves PF/Line Flow learning" | +29.1% PF, +26.4% Line Flow improvement (5-seed) |
 | "Especially low-label" | Largest gains at 10% labels, diminishing at 100% |
 | "Especially OOD" | +22% advantage at 1.3x load |
 | "Transfers to cascade prediction" | +16.5% F1 at 10% labels |

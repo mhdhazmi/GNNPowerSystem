@@ -154,43 +154,14 @@ def threshold_baseline_proper(features_train: list, labels_train: np.ndarray,
 def threshold_baseline(features_list: list, labels: np.ndarray,
                        feature_name: str = 'max_loading') -> dict:
     """
-    DEPRECATED: This function has test leakage. Use threshold_baseline_proper instead.
+    REMOVED: This function had test leakage (tuned threshold on test set).
 
-    Simple threshold baseline: predict cascade if feature > threshold.
-    Tune threshold on data to maximize F1.
+    Use threshold_baseline_proper() instead, which tunes on train and evaluates on test.
     """
-    feature_values = np.array([f[feature_name] for f in features_list])
-
-    best_f1 = 0
-    best_threshold = 0
-    best_preds = None
-
-    # Try different thresholds
-    thresholds = np.linspace(feature_values.min(), feature_values.max(), 100)
-
-    for thresh in thresholds:
-        preds = (feature_values > thresh).astype(int)
-        f1 = f1_score(labels, preds, zero_division=0)
-        if f1 > best_f1:
-            best_f1 = f1
-            best_threshold = thresh
-            best_preds = preds
-
-    # Compute all metrics at best threshold
-    results = {
-        'method': f'Threshold({feature_name})',
-        'threshold': float(best_threshold),
-        'f1': float(f1_score(labels, best_preds, zero_division=0)),
-        'precision': float(precision_score(labels, best_preds, zero_division=0)),
-        'recall': float(recall_score(labels, best_preds, zero_division=0)),
-        'accuracy': float(accuracy_score(labels, best_preds)),
-    }
-
-    # PR-AUC
-    precision_curve, recall_curve, _ = precision_recall_curve(labels, feature_values)
-    results['pr_auc'] = float(auc(recall_curve, precision_curve))
-
-    return results
+    raise NotImplementedError(
+        "threshold_baseline() has been removed due to test leakage. "
+        "Use threshold_baseline_proper(features_train, labels_train, features_test, labels_test) instead."
+    )
 
 
 def xgboost_baseline(features_train: list, labels_train: np.ndarray,

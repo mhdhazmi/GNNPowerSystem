@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
 """
-SSL Pretraining for PF/OPF Tasks
+SSL Pretraining for PF/Line Flow Tasks
 
-Pretrains encoder on power flow data using masked voltage reconstruction.
-This creates a pretrained encoder compatible with PF/OPF task dimensions.
+Pretrains encoder using masked injection reconstruction (NOT voltage).
+This avoids label leakage since voltage is the downstream PF target.
+
+SSL Objectives:
+- PF task: Masks P_net/S_net (power injections), reconstructs them from topology
+- Line Flow task: Masks X/rating (line parameters), reconstructs them
 
 Usage:
     python scripts/pretrain_ssl_pf.py --task pf
