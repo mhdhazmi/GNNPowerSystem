@@ -3,8 +3,8 @@ PowerGraph Dataset Loader
 
 Loads PowerGraph benchmark data for power grid GNN tasks:
 - CASCADE: Graph-level cascading failure classification
-- PF: Node-level power flow regression (future)
-- OPF: Node-level optimal power flow regression (future)
+- PF: Node-level power flow (voltage prediction)
+- LINE FLOW: Edge-level power flow prediction (uses --task opf/lineflow flag)
 
 Data source: https://figshare.com/articles/dataset/PowerGraph/22820534
 
@@ -14,7 +14,7 @@ Usage:
     dataset = PowerGraphDataset(
         root="./data",
         name="ieee24",
-        task="cascade",
+        task="cascade",  # or "pf" or "opf"
         split="train",
     )
 """

@@ -415,7 +415,21 @@ def run_single_experiment(
     if pretrained_path:
         checkpoint = torch.load(pretrained_path, weights_only=False, map_location=device)
         encoder_state = checkpoint["encoder_state_dict"]
-        model.encoder.load_state_dict(encoder_state)
+
+        # Handle edge dimension mismatch between pretrained (2 edge features) and cascade (4 edge features)
+        # SSL pretraining uses [X, rating] (2 features), cascade uses [P_ij, Q_ij, X, rating] (4 features)
+        current_edge_dim = model.encoder.edge_embed.weight.shape[1]
+        pretrained_edge_dim = encoder_state.get("edge_embed.weight", torch.zeros(1, current_edge_dim)).shape[1]
+
+        if current_edge_dim != pretrained_edge_dim:
+            print(f"  Edge dim mismatch: pretrained={pretrained_edge_dim}, cascade={current_edge_dim}")
+            print(f"  Skipping edge_embed layer, using fresh initialization for edge features")
+            # Remove mismatched edge_embed weights from state dict
+            encoder_state = {k: v for k, v in encoder_state.items() if not k.startswith("edge_embed")}
+            model.encoder.load_state_dict(encoder_state, strict=False)
+        else:
+            model.encoder.load_state_dict(encoder_state)
+
         init_type = "ssl_pretrained"
         print(f"  Loaded pretrained encoder from: {pretrained_path}")
 

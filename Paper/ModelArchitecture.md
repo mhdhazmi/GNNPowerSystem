@@ -166,12 +166,12 @@ edge_mask = [0, 0, 1, 0, 1, 0, ...]  # 1 = edge involved in cascade
 ┌─────────────────────────────────────────────────────────────────────┐
 │                       TASK-SPECIFIC HEADS                            │
 │                                                                      │
-│   ┌───────────────┐  ┌───────────────┐  ┌───────────────────────┐   │
-│   │   PF Head     │  │   OPF Head    │  │    Cascade Head       │   │
-│   │  (node-level) │  │  (node-level) │  │    (graph-level)      │   │
-│   │               │  │               │  │                       │   │
-│   │  V_mag, θ     │  │  P_gen, cost  │  │  cascade probability  │   │
-│   └───────────────┘  └───────────────┘  └───────────────────────┘   │
+│   ┌───────────────┐  ┌─────────────────┐  ┌───────────────────────┐   │
+│   │   PF Head     │  │ Line Flow Head  │  │    Cascade Head       │   │
+│   │  (node-level) │  │  (edge-level)   │  │    (graph-level)      │   │
+│   │               │  │                 │  │                       │   │
+│   │    V_mag      │  │   P_ij, Q_ij    │  │  cascade probability  │   │
+│   └───────────────┘  └─────────────────┘  └───────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -318,50 +318,36 @@ After 4 layers, each node has information about the entire grid's state.
 
 ## Task-Specific Heads
 
-### Power Flow Head (for future PF prediction)
+### Power Flow Head (V_mag Prediction)
 
-Predicts voltage magnitude and angle at each bus.
+Predicts voltage magnitude at each bus.
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                        PowerFlowHead                                 │
+│                     PowerFlowHead (Experimental)                     │
 │                                                                      │
 │   Input: node_embeddings [N, 128]                                   │
 │                                                                      │
 │   ┌─────────────────────────────────────────────────────────────┐   │
-│   │  Shared MLP                                                  │   │
-│   │  Linear(128 → 128) → ReLU → Linear(128 → 64) → ReLU         │   │
+│   │  MLP                                                         │   │
+│   │  Linear(128 → 128) → ReLU → Dropout → Linear(128 → 1)       │   │
 │   └─────────────────────────────────────────────────────────────┘   │
 │          │                                                           │
-│          ├────────────────┬────────────────┐                        │
-│          ▼                ▼                ▼                        │
-│   ┌────────────┐   ┌────────────┐   ┌────────────┐                 │
-│   │ V_mag Head │   │  sin Head  │   │  cos Head  │                 │
-│   │ Linear(1)  │   │ Linear(1)  │   │ Linear(1)  │                 │
-│   └────────────┘   └────────────┘   └────────────┘                 │
-│          │                │                │                        │
-│          ▼                ▼                ▼                        │
-│       V_mag           sin(θ)           cos(θ)                       │
-│      [N, 1]           [N, 1]           [N, 1]                       │
+│          ▼                                                           │
+│   ┌────────────┐                                                    │
+│   │ V_mag Head │                                                    │
+│   │  [N, 1]    │                                                    │
+│   └────────────┘                                                    │
+│          │                                                           │
+│          ▼                                                           │
+│       V_mag                                                          │
+│      [N, 1]                                                          │
 │                                                                      │
-│   ┌─────────────────────────────────────────────────────────────┐   │
-│   │  Normalization: Enforce sin²(θ) + cos²(θ) = 1               │   │
-│   │                                                              │   │
-│   │  norm = sqrt(sin² + cos² + ε)                               │   │
-│   │  sin_normalized = sin / norm                                 │   │
-│   │  cos_normalized = cos / norm                                 │   │
-│   └─────────────────────────────────────────────────────────────┘   │
-│                                                                      │
-│   Output: {v_mag: [N], sin_theta: [N], cos_theta: [N]}             │
+│   Output: {v_mag: [N]}                                              │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Why sin/cos instead of raw angle?**
-
-Angles have a discontinuity at ±π (180° = -180°). Using sin/cos:
-- Continuous representation (no jumps)
-- Natural unit circle constraint
-- Easier for neural networks to learn
+**Note on angle prediction**: The codebase includes a more complex `PowerFlowHead` class in `heads.py` that predicts V_mag, sin(θ), and cos(θ) using normalized sin/cos representation to handle angle discontinuities at ±π. However, the experimental Power Flow task in this paper predicts voltage magnitude only (V_mag), matching the simplified training configuration in `train_pf_opf.py`.
 
 ### Cascade Head (Binary Classification)
 
@@ -404,6 +390,44 @@ Predicts whether a cascade will occur for the entire graph.
 - Cascade prediction is a **graph-level** task (one prediction per grid)
 - We need to aggregate N node embeddings into 1 graph embedding
 - Mean pooling: simple, permutation invariant, works well in practice
+
+### Line Flow Head (Edge-Level Prediction)
+
+Predicts active and reactive power flow on each transmission line.
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         LineFlowHead                                 │
+│                                                                      │
+│   Input: node_embeddings [N, 128], edge_index [2, E]                │
+│                                                                      │
+│   Step 1: Create edge embeddings from endpoint nodes                 │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │  For each edge (i, j):                                       │   │
+│   │    edge_emb_ij = concat(node_emb_i, node_emb_j)             │   │
+│   │                                                              │   │
+│   │  [N, 128] × edge_index → [E, 256]                           │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│   Step 2: Edge prediction MLP                                        │
+│   ┌─────────────────────────────────────────────────────────────┐   │
+│   │  Linear(256 → 128) → ReLU → Dropout → Linear(128 → 2)       │   │
+│   │                                                              │   │
+│   │  [E, 256] → [E, 2]                                          │   │
+│   └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│   Output: [P_ij, Q_ij] for each edge [E, 2]                        │
+│                                                                      │
+│   - P_ij: Active power flow (MW)                                    │
+│   - Q_ij: Reactive power flow (MVAr)                                │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Why edge-level prediction?**
+
+- Line flow is fundamentally an edge property (power flows on lines)
+- Concatenating source and target node embeddings captures bidirectional information
+- The MLP learns to predict power flow from the electrical states of connected buses
 
 ---
 

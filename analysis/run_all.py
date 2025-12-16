@@ -51,6 +51,75 @@ def load_json_results(path: Path) -> list[dict]:
         return json.load(f)
 
 
+def load_multiseed_summary(directory: Path, metric_name: str = "test_mae") -> list[dict]:
+    """
+    Load multi-seed summary and convert to standard results format.
+
+    Returns list with mean values and std for each label_fraction.
+    """
+    summary_path = directory / "summary_stats.json"
+    if not summary_path.exists():
+        return []
+
+    with open(summary_path) as f:
+        summary = json.load(f)
+
+    # Convert summary format to standard results format
+    results = []
+    for entry in summary:
+        # Scratch result
+        results.append({
+            "label_fraction": entry["label_fraction"],
+            "init_type": "scratch",
+            metric_name: entry["scratch_mean"],
+            f"{metric_name}_std": entry["scratch_std"],
+            "n_seeds": entry["n_seeds"],
+        })
+        # SSL result
+        results.append({
+            "label_fraction": entry["label_fraction"],
+            "init_type": "ssl_pretrained",
+            metric_name: entry["ssl_mean"],
+            f"{metric_name}_std": entry["ssl_std"],
+            "n_seeds": entry["n_seeds"],
+        })
+
+    return results
+
+
+def load_multiseed_cascade_summary(directory: Path) -> list[dict]:
+    """
+    Load multi-seed cascade summary and convert to standard results format.
+    """
+    summary_path = directory / "summary_stats.json"
+    if not summary_path.exists():
+        return []
+
+    with open(summary_path) as f:
+        summary = json.load(f)
+
+    results = []
+    for entry in summary:
+        # Scratch result
+        results.append({
+            "label_fraction": entry["label_fraction"],
+            "init_type": "scratch",
+            "test_f1": entry["scratch_mean"],
+            "test_f1_std": entry["scratch_std"],
+            "n_seeds": entry["n_seeds"],
+        })
+        # SSL result
+        results.append({
+            "label_fraction": entry["label_fraction"],
+            "init_type": "ssl_pretrained",
+            "test_f1": entry["ssl_mean"],
+            "test_f1_std": entry["ssl_std"],
+            "n_seeds": entry["n_seeds"],
+        })
+
+    return results
+
+
 def plot_ssl_comparison_bar(
     results: list[dict],
     metric: str,
@@ -59,11 +128,17 @@ def plot_ssl_comparison_bar(
     output_path: Path,
     higher_is_better: bool = True,
 ):
-    """Create bar chart comparing SSL vs scratch across label fractions."""
+    """Create bar chart comparing SSL vs scratch across label fractions.
+
+    Supports multi-seed results with error bars (mean ± std).
+    """
     fractions = sorted(set(r["label_fraction"] for r in results))
 
     scratch_vals = []
     ssl_vals = []
+    scratch_stds = []
+    ssl_stds = []
+    n_seeds = None
 
     for frac in fractions:
         scratch = [r for r in results if r["label_fraction"] == frac and r["init_type"] == "scratch"]
@@ -72,15 +147,31 @@ def plot_ssl_comparison_bar(
         scratch_vals.append(scratch[0][metric] if scratch else 0)
         ssl_vals.append(ssl[0][metric] if ssl else 0)
 
+        # Get std if available (multi-seed)
+        std_key = f"{metric}_std"
+        scratch_stds.append(scratch[0].get(std_key, 0) if scratch else 0)
+        ssl_stds.append(ssl[0].get(std_key, 0) if ssl else 0)
+
+        if scratch and "n_seeds" in scratch[0]:
+            n_seeds = scratch[0]["n_seeds"]
+
     x = np.arange(len(fractions))
     width = 0.35
 
     fig, ax = plt.subplots(figsize=(8, 5))
-    bars1 = ax.bar(x - width / 2, scratch_vals, width, label="Scratch", color="#2ecc71", alpha=0.8)
-    bars2 = ax.bar(x + width / 2, ssl_vals, width, label="SSL Pretrained", color="#3498db", alpha=0.8)
+
+    # Add error bars if we have multi-seed data
+    has_std = any(s > 0 for s in scratch_stds + ssl_stds)
+    bars1 = ax.bar(x - width / 2, scratch_vals, width, label="Scratch", color="#2ecc71", alpha=0.8,
+                   yerr=scratch_stds if has_std else None, capsize=4)
+    bars2 = ax.bar(x + width / 2, ssl_vals, width, label="SSL Pretrained", color="#3498db", alpha=0.8,
+                   yerr=ssl_stds if has_std else None, capsize=4)
 
     ax.set_xlabel("Label Fraction")
     ax.set_ylabel(ylabel)
+    # Add seed info to title if available
+    if n_seeds:
+        title = f"{title} ({n_seeds}-seed mean ± std)"
     ax.set_title(title)
     ax.set_xticks(x)
     ax.set_xticklabels([f"{int(f * 100)}%" for f in fractions])
@@ -94,7 +185,7 @@ def plot_ssl_comparison_bar(
             improvement = (s - ssl) / s * 100 if s > 0 else 0
         ax.annotate(
             f"+{improvement:.1f}%",
-            xy=(x[i] + width / 2, ssl_vals[i]),
+            xy=(x[i] + width / 2, ssl_vals[i] + ssl_stds[i] if has_std else ssl_vals[i]),
             ha="center",
             va="bottom",
             fontsize=9,
@@ -428,23 +519,47 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
-    print("GENERATING PAPER FIGURES AND TABLES")
+    print("GENERATING PAPER FIGURES AND TABLES (MULTI-SEED)")
     print("=" * 60)
 
-    # Find latest results for ieee24
-    cascade_dir = find_latest_output("comparison_ieee24_*")
-    pf_dir = find_latest_output("pf_comparison_ieee24_*")
-    opf_dir = find_latest_output("opf_comparison_ieee24_*")
+    # IMPORTANT: Prefer multi-seed directories over single-seed
+    # Multi-seed results have summary_stats.json with mean ± std
+    # This ensures all figures/tables show statistically validated results
 
-    # Find latest results for ieee118
-    cascade_dir_118 = find_latest_output("comparison_ieee118_*")
+    # Find multi-seed results for ieee24 (preferred)
+    pf_dir = find_latest_output("pf_multiseed_ieee24_*")
+    opf_dir = find_latest_output("opf_multiseed_ieee24_*")
+    cascade_dir = find_latest_output("multiseed_ieee24_*")
+
+    # Find multi-seed results for ieee118
+    cascade_dir_118 = find_latest_output("multiseed_ieee118_*")
+
+    # Fallback to single-seed comparison directories if multi-seed not found
+    if not cascade_dir:
+        cascade_dir = find_latest_output("comparison_ieee24_*")
+        print("  Warning: Using single-seed cascade results (multi-seed not found)")
+    if not cascade_dir_118:
+        cascade_dir_118 = find_latest_output("comparison_ieee118_*")
+        print("  Warning: Using single-seed IEEE-118 results (multi-seed not found)")
+    if not pf_dir:
+        pf_dir = find_latest_output("pf_comparison_ieee24_*")
+        print("  Warning: Using single-seed PF results (multi-seed not found)")
+    if not opf_dir:
+        opf_dir = find_latest_output("opf_comparison_ieee24_*")
+        print("  Warning: Using single-seed Line Flow results (multi-seed not found)")
 
     results_dict = {}
 
-    # === CASCADE FIGURES ===
+    # === CASCADE FIGURES (IEEE-24) ===
     if cascade_dir:
-        print(f"\n[Cascade] Loading from: {cascade_dir}")
-        cascade_results = load_json_results(cascade_dir / "results.json")
+        print(f"\n[Cascade IEEE-24] Loading from: {cascade_dir}")
+        # Try multi-seed summary first, fall back to single-seed results
+        if (cascade_dir / "summary_stats.json").exists():
+            cascade_results = load_multiseed_cascade_summary(cascade_dir)
+            print(f"  Loaded multi-seed summary ({cascade_results[0].get('n_seeds', '?')} seeds)")
+        else:
+            cascade_results = load_json_results(cascade_dir / "results.json")
+            print("  Loaded single-seed results (WARNING: prefer multi-seed)")
 
         plot_ssl_comparison_bar(
             cascade_results,
@@ -476,7 +591,13 @@ def main():
     # === CASCADE IEEE-118 FIGURES ===
     if cascade_dir_118:
         print(f"\n[Cascade IEEE-118] Loading from: {cascade_dir_118}")
-        cascade_results_118 = load_json_results(cascade_dir_118 / "results.json")
+        # Try multi-seed summary first, fall back to single-seed results
+        if (cascade_dir_118 / "summary_stats.json").exists():
+            cascade_results_118 = load_multiseed_cascade_summary(cascade_dir_118)
+            print(f"  Loaded multi-seed summary ({cascade_results_118[0].get('n_seeds', '?')} seeds)")
+        else:
+            cascade_results_118 = load_json_results(cascade_dir_118 / "results.json")
+            print("  Loaded single-seed results (WARNING: prefer multi-seed)")
 
         plot_ssl_comparison_bar(
             cascade_results_118,
@@ -512,8 +633,14 @@ def main():
 
     # === PF FIGURES ===
     if pf_dir:
-        print(f"\n[PF] Loading from: {pf_dir}")
-        pf_results = load_json_results(pf_dir / "results.json")
+        print(f"\n[Power Flow] Loading from: {pf_dir}")
+        # Try multi-seed summary first, fall back to single-seed results
+        if (pf_dir / "summary_stats.json").exists():
+            pf_results = load_multiseed_summary(pf_dir, "test_mae")
+            print(f"  Loaded multi-seed summary ({pf_results[0].get('n_seeds', '?')} seeds)")
+        else:
+            pf_results = load_json_results(pf_dir / "results.json")
+            print("  Loaded single-seed results (WARNING: prefer multi-seed)")
 
         plot_ssl_comparison_bar(
             pf_results,
@@ -542,10 +669,16 @@ def main():
     else:
         print("\n[PF] No results found")
 
-    # === OPF FIGURES ===
+    # === LINE FLOW FIGURES (formerly OPF) ===
     if opf_dir:
-        print(f"\n[OPF] Loading from: {opf_dir}")
-        opf_results = load_json_results(opf_dir / "results.json")
+        print(f"\n[Line Flow] Loading from: {opf_dir}")
+        # Try multi-seed summary first, fall back to single-seed results
+        if (opf_dir / "summary_stats.json").exists():
+            opf_results = load_multiseed_summary(opf_dir, "test_mae")
+            print(f"  Loaded multi-seed summary ({opf_results[0].get('n_seeds', '?')} seeds)")
+        else:
+            opf_results = load_json_results(opf_dir / "results.json")
+            print("  Loaded single-seed results (WARNING: prefer multi-seed)")
 
         plot_ssl_comparison_bar(
             opf_results,

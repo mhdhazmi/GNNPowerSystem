@@ -11,7 +11,7 @@ SSL Objectives:
 
 Usage:
     python scripts/pretrain_ssl_pf.py --task pf
-    python scripts/pretrain_ssl_pf.py --task opf
+    python scripts/pretrain_ssl_pf.py --task lineflow  # (or --task opf for backward compat)
 """
 
 import argparse
@@ -245,7 +245,8 @@ def evaluate_ssl(model, loader, device):
 
 def main():
     parser = argparse.ArgumentParser(description="SSL Pretraining for PF/OPF")
-    parser.add_argument("--task", type=str, default="pf", choices=["pf", "opf"])
+    # "lineflow" is preferred; "opf" kept for backward compatibility
+    parser.add_argument("--task", type=str, default="pf", choices=["pf", "opf", "lineflow"])
     parser.add_argument("--grid", type=str, default="ieee24")
     parser.add_argument("--hidden_dim", type=int, default=128)
     parser.add_argument("--num_layers", type=int, default=4)
@@ -256,6 +257,10 @@ def main():
     parser.add_argument("--output_dir", type=str, default="outputs")
 
     args = parser.parse_args()
+
+    # Normalize "lineflow" to "opf" for internal consistency
+    if args.task == "lineflow":
+        args.task = "opf"
 
     device = get_device()
     set_seed(args.seed)

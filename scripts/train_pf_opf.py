@@ -3,11 +3,12 @@
 Power Flow (PF) and Line Flow Prediction Training Script
 
 Trains models for:
-- PF: Node-level voltage prediction
-- Line Flow (--task opf): Edge-level power flow prediction
+- PF (--task pf): Node-level voltage prediction
+- Line Flow (--task lineflow): Edge-level power flow prediction
 
-Note: The "opf" task flag is a historical artifact; the task predicts line flows,
-not OPF decision variables (dispatch/cost). See paper for terminology clarification.
+Note: "--task opf" is accepted as an alias for "--task lineflow" for backward
+compatibility, but "lineflow" is the preferred name to avoid confusion with
+OPF (Optimal Power Flow) decision variable prediction.
 
 Usage:
     # Train PF from scratch
@@ -19,8 +20,8 @@ Usage:
     # Run comparison (SSL vs scratch at different label fractions)
     python scripts/train_pf_opf.py --task pf --run_comparison
 
-    # Train Line Flow prediction
-    python scripts/train_pf_opf.py --task opf --run_comparison
+    # Train Line Flow prediction (preferred)
+    python scripts/train_pf_opf.py --task lineflow --run_comparison
 """
 
 import argparse
@@ -384,7 +385,8 @@ def run_single_experiment(
         checkpoint = torch.load(pretrained_path, weights_only=False, map_location=device)
         if "encoder_state_dict" in checkpoint:
             try:
-                model.encoder.load_state_dict(checkpoint["encoder_state_dict"])
+                # Use strict=True (default) to ensure exact match
+                model.encoder.load_state_dict(checkpoint["encoder_state_dict"], strict=True)
                 init_type = "ssl_pretrained"
                 pretrained_loaded = True
                 print(f"  Loaded pretrained encoder from: {pretrained_path}")
@@ -712,7 +714,8 @@ def run_multi_seed_comparison(args):
 
 def main():
     parser = argparse.ArgumentParser(description="PF/OPF Training")
-    parser.add_argument("--task", type=str, default="pf", choices=["pf", "opf"])
+    # "lineflow" is the preferred name; "opf" kept for backward compatibility
+    parser.add_argument("--task", type=str, default="pf", choices=["pf", "opf", "lineflow"])
     parser.add_argument("--grid", type=str, default="ieee24")
     parser.add_argument("--pretrained", type=str, help="Path to pretrained SSL model")
     parser.add_argument("--from_scratch", action="store_true")
@@ -729,6 +732,11 @@ def main():
     parser.add_argument("--output_dir", type=str, default="outputs")
 
     args = parser.parse_args()
+
+    # Normalize "lineflow" to "opf" for internal consistency
+    # (the underlying code uses "opf" but task is actually line flow prediction)
+    if args.task == "lineflow":
+        args.task = "opf"
 
     if args.run_multi_seed:
         run_multi_seed_comparison(args)

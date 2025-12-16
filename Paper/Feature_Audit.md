@@ -97,7 +97,7 @@ This is incorrect. The actual behavior is:
 | File | What I Checked |
 |------|----------------|
 | `src/data/powergraph.py:326-334` | PF task: x=P_net,S_net, y=V, edge_attr=X,rating |
-| `src/data/powergraph.py:336-344` | OPF task: x=P_net,S_net,V, y=flows, edge_attr=X,rating |
+| `src/data/powergraph.py:336-344` | Line Flow task (opf flag): x=P_net,S_net,V, y=flows, edge_attr=X,rating |
 | `src/data/powergraph.py:346-382` | Cascade task: full features |
 | `scripts/pretrain_ssl_pf.py:33-114` | MaskedVoltageSSL: masks x, reconstructs x |
 | `scripts/pretrain_ssl_pf.py:117-197` | MaskedFlowSSL: masks edge_attr, reconstructs edge_attr |
@@ -118,16 +118,16 @@ class MaskedInjectionSSL:
     """SSL model for PF task: masks power injections (P_net, S_net) and reconstructs them."""
 ```
 
-### Fix 2: Rename OPF SSL Class
+### Fix 2: Rename Line Flow SSL Class
 
 ```python
 # Before
 class MaskedFlowSSL:
-    """SSL model for OPF task: masks edge flows and learns to reconstruct them."""
+    """SSL model for Line Flow task: masks edge flows and learns to reconstruct them."""
 
 # After
 class MaskedLineParamSSL:
-    """SSL model for OPF task: masks line parameters (X, rating) and reconstructs them."""
+    """SSL model for Line Flow task: masks line parameters (X, rating) and reconstructs them."""
 ```
 
 ### Fix 3: Update Progress Report
@@ -140,7 +140,7 @@ Correct the methodology section to accurately describe what is being masked.
 
 **The implementation is sound.** The SSL pretraining correctly:
 1. For PF: Masks input-side features (P/Q injections), not the target (V)
-2. For OPF: Masks input-side features (line parameters), not the target (flows)
+2. For Line Flow: Masks input-side features (line parameters), not the target (flows)
 3. For Cascade: Masks grid state variables, which is valid since the target is a binary label
 
 The only issue is misleading documentation that made reviewers concerned about leakage. This should be fixed to avoid confusion.

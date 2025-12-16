@@ -285,9 +285,12 @@ def main():
     if pf_dir:
         results_dict["Power Flow"] = (load_json_results(pf_dir / "results.json"), "test_mae", False)
 
-    opf_dir = find_latest_output("opf_comparison_ieee24_*")
+    opf_dir = find_latest_output("opf_multiseed_ieee24_*")
+    if not opf_dir:
+        opf_dir = find_latest_output("opf_comparison_ieee24_*")
     if opf_dir:
-        results_dict["OPF"] = (load_json_results(opf_dir / "results.json"), "test_mae", False)
+        # Use "Line Flow" naming (not OPF) per reviewer feedback
+        results_dict["Line Flow"] = (load_json_results(opf_dir / "results.json"), "test_mae", False)
 
     formats = ["latex", "markdown"] if args.format == "both" else [args.format]
 
