@@ -1,0 +1,19 @@
+\begin{table}[t]
+\caption{Heuristic Baselines (Cascade Prediction)}
+\label{tab:heuristics}
+\centering
+\begin{tabular}{lc}
+\toprule
+\textbf{Method} & \textbf{Test F1} \\
+\midrule
+Always Negative & 0.00 \\
+Max Loading Threshold ($\tau=0.8$)\tnote{*} & 0.45 \\
+Top-K Loading Check ($K=5$)\tnote{*} & 0.52 \\
+GNN (Scratch, 10\%) & 0.773 \\
+GNN (SSL, 10\%) & \textbf{0.826} \\
+\bottomrule
+\end{tabular}
+\begin{tablenotes}
+\item[*] Threshold tuned on validation set only
+\end{tablenotes}
+\end{table}

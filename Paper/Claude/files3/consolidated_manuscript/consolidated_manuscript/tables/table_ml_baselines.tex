@@ -1,0 +1,14 @@
+\begin{table}[t]
+\caption{ML Baseline Comparison (Cascade, Power Flow)}
+\label{tab:mlbaselines}
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Model} & \textbf{Features} & \textbf{Cascade F1} & \textbf{PF MAE} \\
+\midrule
+Random Forest & Aggregated & 0.68 & 0.0180 \\
+XGBoost & Aggregated & 0.72 & 0.0165 \\
+GNN (SSL, 10\%) & Graph-aware & \textbf{0.826} & \textbf{0.0106} \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,22 @@
+\begin{table*}[t]
+\caption{SSL Transfer Benefits Across Tasks and Grid Scales}
+\label{tab:main}
+\centering
+\begin{tabular}{llcccccc}
+\toprule
+\textbf{Task} & \textbf{Grid} & \textbf{Metric} & \textbf{Label \%} & \textbf{Scratch} & \textbf{SSL} & \textbf{Improvement} & \textbf{Seeds} \\
+\midrule
+\multirow{2}{*}{\textbf{Cascade}} & IEEE-24 & F1$\uparrow$ & 10\% & 0.773±0.015 & \textbf{0.826±0.016} & +6.8\% & 5 \\
+& & & 100\% & 0.955±0.007 & \textbf{0.958±0.005} & +0.3\% & 5 \\
+\cmidrule{2-8}
+& IEEE-118 & F1$\uparrow$ & 10\% & 0.262±0.243 & \textbf{0.874±0.050} & $\Delta$F1=+0.61 & 5 \\
+& & & 100\% & 0.987±0.005 & \textbf{0.994±0.002} & +0.7\% & 5 \\
+\midrule
+\textbf{Power Flow} & IEEE-24 & MAE$\downarrow$ & 10\% & 0.0149±0.0004 & \textbf{0.0106±0.0003} & +29.1\% & 5 \\
+& & & 100\% & 0.0040±0.0002 & \textbf{0.0035±0.0001} & +13.0\% & 5 \\
+\midrule
+\textbf{Line Flow} & IEEE-24 & MAE$\downarrow$ & 10\% & 0.0084±0.0003 & \textbf{0.0062±0.0002} & +26.4\% & 5 \\
+& & & 100\% & 0.0022±0.0000 & \textbf{0.0021±0.0005} & +2.3\% & 5 \\
+\bottomrule
+\end{tabular}
+\end{table*}

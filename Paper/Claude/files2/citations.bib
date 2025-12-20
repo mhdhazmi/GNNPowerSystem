@@ -1,0 +1,704 @@
+@article{pan2021deepopf,
+  author    = {Pan, Xiang and Zhao, Tianyu and Chen, Minghua and Zhang, Shengyu},
+  title = {{DeepOPF}: A Deep Neural Network Approach for Security-Constrained {DC} Optimal Power Flow},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {36},
+  number    = {3},
+  pages     = {1725--1735},
+  year      = {2021},
+  publisher = {IEEE},
+  note      = {Achieves <0.2\% optimality loss with 100x speedup on IEEE 30/118/300-bus systems using predict-and-reconstruct DNN approach}
+}
+
+@article{huang2022deepopfv,
+  author    = {Huang, Wanjun and Pan, Xiang and Chen, Minghua and Low, Steven H.},
+  title = {{DeepOPF-V}: Solving {AC-OPF} Problems Efficiently},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {37},
+  number    = {1},
+  pages     = {800--803},
+  year      = {2022},
+  publisher = {IEEE},
+  note      = {Extends DeepOPF to AC-OPF with voltage-constrained approach; achieves 10,000x speedup on 2000-bus systems}
+}
+
+@article{hu2021physics,
+  author    = {Hu, Xing and Hu, Haoyu and Verma, Saurabh and Zhang, Zhi-Li},
+  title = {Physics-Guided Deep Neural Networks for Power Flow Analysis},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {36},
+  number    = {3},
+  pages     = {2082--2092},
+  year      = {2021},
+  publisher = {IEEE},
+  note      = {AutoEncoder-based DNN embedding Kirchhoff's laws; topology knowledge in weight matrices; tested on IEEE 118-bus}
+}
+
+@article{liu2023topology,
+  author    = {Liu, Shaohui and Wu, Chengyang and Zhu, Hao},
+  title = {Topology-Aware Graph Neural Networks for Learning Feasible and Adaptive {{AC}-{OPF}} Solutions},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {38},
+  number    = {5},
+  pages     = {4953--4966},
+  year      = {2023},
+  publisher = {IEEE},
+  note      = {Exploits LMP locality; physics-aware flow feasibility regularization; efficient re-training for topology changes}
+}
+
+@article{huang2023applications,
+  author    = {Huang, Bo and Wang, Jianhui},
+  title = {Applications of Physics-Informed Neural Networks in Power Systems -- A Review},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {38},
+  number    = {1},
+  pages     = {572--588},
+  year      = {2023},
+  publisher = {IEEE},
+  note      = {Comprehensive review of four PINN paradigms: physics-informed loss, initialization, architecture, and hybrid models}
+}
+
+@article{donon2020neural,
+  author    = {Donon, Balthazar and Cl{\'e}ment, R{\'e}my and Donnot, Benjamin and Marot, Antoine and Guyon, Isabelle and Schoenauer, Marc},
+  title = {Neural Networks for Power Flow: Graph Neural Solver},
+  journal   = {Electric Power Systems Research},
+  volume    = {189},
+  pages     = {106547},
+  year      = {2020},
+  publisher = {Elsevier},
+  note      = {Self-supervised GNN minimizing Kirchhoff violations; no labeled data needed; 0.995 correlation with Newton-Raphson on IEEE 118-bus}
+}
+
+@article{nellikkath2022physics,
+  author    = {Nellikkath, Rahul and Chatzivasileiadis, Spyros},
+  title = {Physics-Informed Neural Networks for {{AC}} Optimal Power Flow},
+  journal   = {Electric Power Systems Research},
+  volume    = {212},
+  pages     = {108412},
+  year      = {2022},
+  publisher = {Elsevier},
+  note      = {AC power flow equations in loss function with MILP-based worst-case verification; tested on IEEE 39/118/162-bus}
+}
+
+@article{lin2024powerflownet,
+  author    = {Lin, Nan and Orfanoudakis, Stavros and Ordonez Cardenas, Nathaly and Giraldo, Juan S. and Vergara, Pedro P.},
+  title = {{PowerFlowNet}: Power Flow Approximation Using Message Passing Graph Neural Networks},
+  journal   = {International Journal of Electrical Power \& Energy Systems},
+  volume    = {160},
+  pages     = {110112},
+  year      = {2024},
+  publisher = {Elsevier},
+  note      = {145x faster than Newton-Raphson on French 6470-bus network; K-hop message passing; voltage MAE <0.001 p.u.}
+}
+
+@inproceedings{owerko2020optimal,
+  author    = {Owerko, Damian and Gama, Fernando and Ribeiro, Alejandro},
+  title = {Optimal Power Flow Using Graph Neural Networks},
+  booktitle = {{IEEE} International Conference on Acoustics, Speech and Signal Processing (ICASSP)},
+  pages     = {5930--5934},
+  year      = {2020},
+  organization = {IEEE},
+  note      = {GNN with imitation learning; permutation equivariance exploits grid symmetries; tested on IEEE 30/118-bus}
+}
+
+@article{hu2021ensemble,
+  author    = {Hu, Rui and Li, Qifeng and Qiu, Feng},
+  title = {Ensemble Learning Based Convex Approximation of Three-Phase Power Flow},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {36},
+  number    = {5},
+  pages     = {4042--4051},
+  year      = {2021},
+  publisher = {IEEE},
+  note      = {Ensemble learning for unbalanced distribution systems; convex approximation of nonlinear power flow}
+}
+
+@article{varbella2024powergraph,
+  author    = {Varbella, Anna and Amara, Kenza and Gjorgiev, Blazhe and El-Assady, Mennatallah and Sansavini, Giovanni},
+  title = {{PowerGraph}: A Power Grid Benchmark Dataset for Graph Neural Networks},
+  journal   = {Advances in Neural Information Processing Systems (NeurIPS) Datasets and Benchmarks Track},
+  year      = {2024},
+  note      = {Benchmark with PF, OPF, cascading failure tasks; GAT best-performing architecture; single MPL layer optimal}
+}
+
+@article{park2023pdlscopf,
+  author    = {Park, Seonho and Van Hentenryck, Pascal},
+  title = {{PDL-{SCOPF}}: Self-Supervised Primal-Dual Learning for Large-Scale Security-Constrained {DC} Optimal Power Flow},
+  journal   = {arXiv preprint arXiv:2311.18072},
+  year      = {2023},
+  note      = {End-to-end primal-dual learning eliminating need for pre-computed optimal solutions; Augmented Lagrangian Method}
+}
+
+@article{pareek2024semisupervised,
+  author    = {Pareek, Parikshit and others},
+  title = {Semi-Supervised Bayesian Neural Network for Optimal Power Flow},
+  journal   = {arXiv preprint arXiv:2410.03085},
+  year      = {2024},
+  note      = {Sandwich BNN with unlabeled data augmentation; outperforms DNNs in low-data settings; ensures constraint feasibility}
+}
+
+@inproceedings{donon2019graph,
+  author    = {Donon, Balthazar and Donnot, Benjamin and Guyon, Isabelle and Marot, Antoine},
+  title = {Graph Neural Solver for Power Systems},
+  booktitle = {{IEEE} International Joint Conference on Neural Networks (IJCNN)},
+  pages     = {1--8},
+  year      = {2019},
+  organization = {IEEE},
+  note      = {First GNN demonstrating size generalization: trained on 30-node grids, tested on 10-110 nodes}
+}
+
+@article{chen2022unsupervised,
+  author    = {Chen, Guoyin and others},
+  title = {Unsupervised Deep Learning for {{AC}-{OPF}} via {Lagrangian} Duality},
+  journal   = {IEEE International Conference on Communications, Control, and Computing Technologies for Smart Grids (SmartGridComm)},
+  year      = {2022},
+  note      = {End-to-end unsupervised learning using modified augmented Lagrangian function as training loss; no conventional solver needed}
+}
+
+@inproceedings{Fioretto2020,
+  author    = {Ferdinando Fioretto and Terrence W. K. Mak and Pascal Van Hentenryck},
+  title = {Predicting {{AC}} Optimal Power Flows: Combining Deep Learning and Lagrangian Dual Methods},
+  booktitle = {Proceedings of the 34th {AAAI} Conference on Artificial Intelligence (AAAI)},
+  pages     = {630--637},
+  year      = {2020}
+}
+
+@article{Lei2021,
+  author    = {Xingyu Lei and Zhifang Yang and Juan Yu and Junbo Zhao and Qian Gao and Hongxin Yu},
+  title = {Data-Driven Optimal Power Flow: A Physics-Informed Machine Learning Approach},
+  journal   = {{IEEE} Transactions on Power Systems},
+  volume    = {36},
+  number    = {1},
+  pages     = {346--354},
+  year      = {2021}
+}
+
+@inproceedings{Huang2021,
+  author    = {Wanjun Huang and Minghua Chen},
+  title = {{DeepOPF-NGT}: A Fast Unsupervised Learning Approach for Solving {AC}-{OPF} Problems without Ground Truth},
+  booktitle = {38th International Conference on Machine Learning (ICML) Workshop on Tackling Climate Change with {{ML}}},
+  year      = {2021}
+}
+
+@article{Liu2023,
+  author    = {Shaohui Liu and Chengyang Wu and Hao Zhu},
+  title = {Topology-Aware Graph Neural Networks for Learning Feasible and Adaptive {{AC}}-{OPF} Solutions},
+  journal   = {{IEEE} Transactions on Power Systems},
+  volume    = {38},
+  number    = {6},
+  pages     = {5660--5670},
+  year      = {2023}
+}
+
+@article{Lotfi2022,
+  author    = {Amir Lotfi and Mehrdad Pirnia},
+  title = {Constraint-Guided Deep Neural Network for Solving Optimal Power Flow},
+  journal   = {Electric Power Systems Research},
+  volume    = {211},
+  pages     = {108353},
+  year      = {2022}
+}
+
+@article{Mohammadi2024,
+  author    = {Sina Mohammadi and Van-Hai Bui and Wencong Su and Bin Wang},
+  title = {Surrogate Modeling for Solving {{OPF}}: A Review},
+  journal   = {Sustainability},
+  volume    = {16},
+  number    = {22},
+  pages     = {9851},
+  year      = {2024}
+}
+
+@article{Khaloie2025,
+  author    = {Hooman Khaloie and Mihaly Dolanyi and Jean-Fran{\c{c}}ois Toubeau and Fran{\c{c}}ois Vall{\'e}e},
+  title = {Review of Machine Learning Techniques for Optimal Power Flow},
+  journal   = {Applied Energy},
+  volume    = {388},
+  pages     = {125637},
+  year      = {2025}
+}
+
+@article{Xie2025,
+  author    = {Renyou Xie and Liangcai Xu and Chaojie Li and Xinghuo Yu},
+  title = {Neural-Optimization Integration for {{AC}} Optimal Power Flow: A Differentiable Warm-Start Approach},
+  journal   = {Cyber-Physical Energy Systems},
+  volume    = {1},
+  number    = {1},
+  pages     = {104--115},
+  year      = {2025}
+}
+
+@article{Varbella2023,
+  author    = {Anna Varbella and Blazhe Gjorgiev and Giovanni Sansavini},
+  title = {Geometric deep learning for online prediction of cascading failures in power grids},
+  journal   = {Reliability Engineering {\&} System Safety},
+  volume    = {237},
+  pages     = {109341},
+  year      = {2023}
+}
+
+@inproceedings{Lin2022EleGNN,
+  author    = {Hui Lin and Yan Sun},
+  title = {{EleGNN}: Electrical-model-guided graph neural networks for power distribution system state estimation},
+  booktitle = {Proc. {IEEE} Global Communications Conference (GLOBECOM)},
+  pages     = {5292--5298},
+  year      = {2022}
+}
+
+@inproceedings{Tuo2023,
+  author    = {Mingjian Tuo and Xingpeng Li and Tianxia Zhao},
+  title = {Graph Neural Network-Based Power Flow Model},
+  booktitle = {North American Power Symposium (NAPS)},
+  year      = {2023}
+}
+
+@article{Zhang2024,
+  author    = {Hai-Feng Zhang and Xin-Long Lu and Xiao Ding and Xiaoming Zhang},
+  title = {Physics-informed line graph neural network for power flow calculation},
+  journal   = {Chaos},
+  volume    = {34},
+  number    = {11},
+  pages     = {113123},
+  year      = {2024},
+  doi       = {10.1063/5.0235301}
+}
+
+@article{Zhai2024,
+  author    = {Baitong Zhai and Dongsheng Yang and Bowen Zhou and Guangdi Li},
+  title = {Distribution system state estimation based on power flow-guided GraphSAGE},
+  journal   = {Energies},
+  volume    = {17},
+  number    = {17},
+  pages     = {4317},
+  year      = {2024},
+  doi       = {10.3390/en17174317}
+}
+
+@article{Dogoulis2025,
+  author    = {Pantelis Dogoulis and Karim Tit and Maxime Cordy},
+  title = {{KCLNet}: Physics-informed power flow prediction via constraints projections},
+  journal   = {arXiv preprint arXiv:2506.12902},
+  year      = {2025}
+}
+
+@article{Yang2024,
+  author    = {Mei Yang and Gao Qiu and Tingjian Liu and Junyong Liu and Kai Liu and Yaping Li},
+  title = {Probabilistic power flow based on physics-guided graph neural networks},
+  journal   = {Electric Power Systems Research},
+  volume    = {235},
+  pages     = {110864},
+  year      = {2024},
+  doi       = {10.1016/j.epsr.2023.110864}
+}
+
+@inproceedings{hou2022graphmae,
+  title = {{GraphMAE}: Self-Supervised Masked Graph Autoencoders},
+  author={Hou, Zhenyu and Liu, Xiao and Cen, Yukuo and Dong, Yuxiao and Yang, Hongxia and Wang, Chunjie and Tang, Jie},
+  booktitle = {Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining},
+  pages={594--604},
+  year={2022},
+  publisher={ACM}
+}
+
+@inproceedings{xia2022simgrace,
+  title = {{SimGRACE}: A Simple Framework for Graph Contrastive Learning without Data Augmentation},
+  author={Xia, Jun and Wu, Lirong and Chen, Jintao and Hu, Bozhen and Li, Stan Z.},
+  booktitle = {Proceedings of the ACM Web Conference 2022},
+  pages={1070--1079},
+  year={2022},
+  publisher={ACM}
+}
+
+@inproceedings{thakoor2022bgrl,
+  title = {Large-Scale Representation Learning on Graphs via Bootstrapping},
+  author={Thakoor, Shantanu and Tallec, Corentin and Azar, Mohammad Gheshlaghi and Azabou, Mehdi and Dyer, Eva L and Munos, R{\'e}mi and Veli{\v{c}}kovi{\'c}, Petar and Valko, Michal},
+  booktitle = {International Conference on Learning Representations},
+  year={2022}
+}
+
+@inproceedings{qiu2020gcc,
+  title = {{GCC}: Graph Contrastive Coding for Graph Neural Network Pre-Training},
+  author={Qiu, Jiezhong and Chen, Qibin and Dong, Yuxiao and Zhang, Jing and Yang, Hongxia and Ding, Ming and Wang, Kuansan and Tang, Jie},
+  booktitle = {Proceedings of the 26th ACM SIGKDD International Conference on Knowledge Discovery and Data Mining},
+  pages={1150--1160},
+  year={2020},
+  publisher={ACM}
+}
+
+@inproceedings{sun2020infograph,
+  title = {{InfoGraph}: Unsupervised and Semi-supervised Graph-Level Representation Learning via Mutual Information Maximization},
+  author={Sun, Fan-Yun and Hoffmann, Jordan and Verma, Vikas and Tang, Jian},
+  booktitle = {International Conference on Learning Representations},
+  year={2020}
+}
+
+@inproceedings{you2020graphcl,
+  title = {Graph Contrastive Learning with Augmentations},
+  author={You, Yuning and Chen, Tianlong and Sui, Yongduo and Chen, Ting and Wang, Zhangyang and Shen, Yang},
+  booktitle = {Advances in Neural Information Processing Systems},
+  volume={33},
+  pages={5812--5823},
+  year={2020}
+}
+
+@inproceedings{velickovic2019dgi,
+  title = {Deep Graph Infomax},
+  author={Veli{\v{c}}kovi{\'c}, Petar and Fedus, William and Hamilton, William L and Li{\`o}, Pietro and Bengio, Yoshua and Hjelm, R Devon},
+  booktitle = {International Conference on Learning Representations},
+  year={2019}
+}
+
+@inproceedings{zhu2021gca,
+  title = {Graph Contrastive Learning with Adaptive Augmentation},
+  author={Zhu, Yanqiao and Xu, Yichen and Yu, Feng and Liu, Qiang and Wu, Shu and Wang, Liang},
+  booktitle = {Proceedings of the Web Conference 2021},
+  pages={2069--2080},
+  year={2021},
+  publisher={ACM}
+}
+
+@inproceedings{hou2023graphmae2,
+  title = {{GraphMAE2}: A Decoding-Enhanced Masked Self-Supervised Graph Learner},
+  author={Hou, Zhenyu and He, Yufei and Cen, Yukuo and Liu, Xiao and Dong, Yuxiao and Kharlamov, Evgeny and Tang, Jie},
+  booktitle = {Proceedings of the ACM Web Conference 2023},
+  pages={737--746},
+  year={2023},
+  publisher={ACM}
+}
+
+@inproceedings{hassani2020mvgrl,
+  title = {Contrastive Multi-View Representation Learning on Graphs},
+  author={Hassani, Kaveh and Khasahmadi, Amir Hosein},
+  booktitle = {International Conference on Machine Learning},
+  pages={4116--4126},
+  year={2020},
+  organization={PMLR}
+}
+
+@article{ji2023stssl,
+  title = {Spatio-Temporal Self-Supervised Learning for Traffic Flow Prediction},
+  author={Ji, Jiahao and Wang, Jingyuan and Huang, Chao and Wu, Junjie and Xu, Boren and Wu, Zhenhe and Zhang, Junbo and Zheng, Yu},
+  booktitle = {Proceedings of the AAAI Conference on Artificial Intelligence},
+  volume={37},
+  pages={4356--4364},
+  year={2023}
+}
+
+@article{ringsquandl2024safepowergraph,
+  title = {{SafePowerGraph}: Safety-aware Evaluation of Graph Neural Networks for Transmission Power Grids},
+  author={Ringsquandl, Martin and others},
+  journal={arXiv preprint arXiv:2407.15929},
+  year={2024}
+}
+
+@article{Raissi2019,
+  author    = {Raissi, Maziar and Perdikaris, Paris and Karniadakis, George Em},
+  title = {Physics-informed neural networks: A deep learning framework for solving forward and inverse problems involving nonlinear partial differential equations},
+  journal   = {Journal of Computational Physics},
+  volume    = {378},
+  pages     = {686--707},
+  year      = {2019},
+  doi       = {10.1016/j.jcp.2018.10.045}
+}
+
+@article{Karniadakis2021,
+  author    = {Karniadakis, George Em and Kevrekidis, Ioannis G. and Lu, Lu and Perdikaris, Paris and Wang, Sifan and Yang, Liu},
+  title = {Physics-informed machine learning},
+  journal   = {Nature Reviews Physics},
+  volume    = {3},
+  number    = {6},
+  pages     = {422--440},
+  year      = {2021},
+  doi       = {10.1038/s42254-021-00314-5}
+}
+
+@article{Sukumar2022,
+  author    = {Sukumar, N. and Srivastava, Ankit},
+  title = {Exact imposition of boundary conditions with distance functions in physics-informed deep neural networks},
+  journal   = {Computer Methods in Applied Mechanics and Engineering},
+  volume    = {389},
+  pages     = {114334},
+  year      = {2022},
+  doi       = {10.1016/j.cma.2021.114334}
+}
+
+@inproceedings{Greydanus2019,
+  author    = {Greydanus, Samuel and Dzamba, Misko and Yosinski, Jason},
+  title = {Hamiltonian Neural Networks},
+  booktitle = {Advances in Neural Information Processing Systems (NeurIPS)},
+  volume    = {32},
+  pages     = {15353--15363},
+  year      = {2019},
+  doi       = {10.48550/arXiv.1906.01563}
+}
+
+@article{Gupta2024,
+  author    = {Gupta, Kishor Datta and Siddique, Sunzida and George, Roy and Kamal, Marufa and Rifat, Rakib Hossain and Haque, Mohd Ariful},
+  title = {Physics Guided Neural Networks with Knowledge Graph},
+  journal   = {Digital},
+  volume    = {4},
+  number    = {4},
+  pages     = {846--865},
+  year      = {2024},
+  doi       = {10.3390/digital4040042}
+}
+
+@inproceedings{Sun2020InfoGraph,
+  title = {InfoGraph: Unsupervised and Semi-supervised Graph-Level Representation Learning via Mutual Information Maximization},
+  author = {Sun, Fan-Yun and Hoffmann, Jordan and Verma, Vikas and Tang, Jian},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year = {2020}
+}
+
+@inproceedings{Qiu2020GCC,
+  title = {GCC: Graph Contrastive Coding for Graph Neural Network Pre-Training},
+  author = {Qiu, Jiezhong and Chen, Qibin and Dong, Yuxiao and Zhang, Jing and Yang, Hongxia and Ding, Ming and Wang, Kuansan and Tang, Jie},
+  booktitle = {Proceedings of the 26th ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  year = {2020}
+}
+
+@inproceedings{Hu2020PretrainGNN,
+  title = {Strategies for Pre-Training Graph Neural Networks},
+  author = {Hu, Weihua and Liu, Bowen and Gomes, Joseph and Zitnik, Marinka and Liang, Percy and Pande, Vijay and Leskovec, Jure},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year = {2020}
+}
+
+@inproceedings{Xia2022SimGRACE,
+  title = {SimGRACE: A Simple Framework for Graph Contrastive Learning without Data Augmentation},
+  author = {Xia, Jun and Wu, Lirong and Chen, Jintao and Hu, Bozhen and Li, Stan Z.},
+  booktitle = {Proceedings of The Web Conference 2022 (WWW)},
+  year = {2022}
+}
+
+@inproceedings{Hou2022GraphMAE,
+  title = {GraphMAE: Self-Supervised Masked Graph Autoencoders},
+  author = {Hou, Zhenyu and Liu, Xiao and Cen, Yukuo and Dong, Yuxiao and Yang, Hongxia and Wang, Chunjie and Tang, Jie},
+  booktitle = {Proceedings of the 28th ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  year = {2022}
+}
+
+@inproceedings{Hu2020GPT-GNN,
+  title = {GPT-{GNN}: Generative Pre-Training of Graph Neural Networks},
+  author = {Hu, Ziniu and Dong, Yuxiao and Wang, Kuansan and Chang, Kai-Wei and Sun, Yizhou},
+  booktitle = {Proceedings of the 26th ACM SIGKDD Conference on Knowledge Discovery and Data Mining (KDD)},
+  year = {2020}
+}
+
+@inproceedings{Liu2022GraphMVP,
+  title = {Pre-training Molecular Graph Representation with 3D Geometry},
+  author = {Liu, Shengchao and Wang, Hanchen and Liu, Weiyang and Lasenby, Joan and Guo, Hongyu and Tang, Jian},
+  booktitle = {International Conference on Learning Representations (ICLR)},
+  year = {2022}
+}
+
+@article{Zhu2025PhysicsSSL,
+  title = {GNNs' Generalization Improvement for Large-Scale Power System Analysis Based on Physics-Informed Self-Supervised Pre-Training},
+  author = {Zhu, Yuhong and Zhou, Yongzhi and Wei, Wei and Li, Peng and Huang, Wenqi},
+  journal = {IEEE Transactions on Power Systems},
+  year = {2025}
+}
+
+@article{carreras2002critical,
+  author    = {Carreras, B. A. and Lynch, V. E. and Dobson, I. and Newman, D. E.},
+  title = {Critical Points and Transitions in an Electric Power Transmission Model for Cascading Failure Blackouts},
+  journal   = {Chaos: An Interdisciplinary Journal of Nonlinear Science},
+  volume    = {12},
+  number    = {4},
+  pages     = {985--994},
+  year      = {2002},
+  doi       = {10.1063/1.1505810}
+}
+
+@article{dobson2007complex,
+  author    = {Dobson, I. and Carreras, B. A. and Lynch, V. E. and Newman, D. E.},
+  title = {Complex Systems Analysis of Series of Blackouts: Cascading Failure, Critical Points, and Self-Organization},
+  journal   = {Chaos: An Interdisciplinary Journal of Nonlinear Science},
+  volume    = {17},
+  number    = {2},
+  pages     = {026103},
+  year      = {2007},
+  doi       = {10.1063/1.2737822}
+}
+
+@article{eppstein2012random,
+  author    = {Eppstein, Margaret J. and Hines, Paul D. H.},
+  title = {A ``Random Chemistry'' Algorithm for Identifying Collections of Multiple Contingencies That Initiate Cascading Failure},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {27},
+  number    = {3},
+  pages     = {1698--1705},
+  year      = {2012},
+  doi       = {10.1109/TPWRS.2012.2183624}
+}
+
+@article{nedic2006criticality,
+  author    = {Nedic, D. P. and Dobson, I. and Kirschen, D. S. and Carreras, B. A. and Lynch, V. E.},
+  title = {Criticality in a Cascading Failure Blackout Model},
+  journal   = {International Journal of Electrical Power \& Energy Systems},
+  volume    = {28},
+  number    = {9},
+  pages     = {627--633},
+  year      = {2006},
+  doi       = {10.1016/j.ijepes.2006.03.006}
+}
+
+@article{chen2005cascading,
+  author    = {Chen, J. and Thorp, J. S. and Dobson, I.},
+  title = {Cascading Dynamics and Mitigation Assessment in Power System Disturbances via a Hidden Failure Model},
+  journal   = {International Journal of Electrical Power \& Energy Systems},
+  volume    = {27},
+  number    = {4},
+  pages     = {318--326},
+  year      = {2005},
+  doi       = {10.1016/j.ijepes.2004.12.003}
+}
+
+@article{du2019achieving,
+  author    = {Du, Y. and Li, F. and Li, J. and Zheng, T.},
+  title = {Achieving 100x Acceleration for {{N-1}} Contingency Screening With Uncertain Scenarios Using Deep Convolutional Neural Network},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {34},
+  number    = {4},
+  pages     = {3303--3305},
+  year      = {2019},
+  doi       = {10.1109/TPWRS.2019.2914860}
+}
+
+@article{vaiman2012risk,
+  author    = {Vaiman, M. and Bell, K. and Chen, Y. and Chowdhury, B. and Dobson, I. and Hines, P. and Papic, M. and Miller, S. and Zhang, P.},
+  title = {Risk Assessment of Cascading Outages: Methodologies and Challenges},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {27},
+  number    = {2},
+  pages     = {631--641},
+  year      = {2012},
+  doi       = {10.1109/TPWRS.2011.2177868}
+}
+
+@article{zimmerman2011matpower,
+  author    = {Zimmerman, R. D. and Murillo-S{\'a}nchez, C. E. and Thomas, R. J.},
+  title = {{MATPOWER}: Steady-State Operations, Planning, and Analysis Tools for Power Systems Research and Education},
+  journal   = {IEEE Transactions on Power Systems},
+  volume    = {26},
+  number    = {1},
+  pages     = {12--19},
+  year      = {2011},
+  doi       = {10.1109/TPWRS.2010.2051168}
+}
+
+@article{Guo2023,
+  author = {Guo, Zhenping and Sun, Kai and Su, Xiaowen and Simunovic, Srdjan},
+  title = {A review on simulation models of cascading failures in power systems},
+  journal = {iEnergy},
+  volume = {2},
+  number = {4},
+  pages = {284--296},
+  year = {2023},
+  doi = {10.23919/IEN.2023.0039}
+}
+
+@article{Cetinay2018,
+  author = {Cetinay, Hale and Soltan, Saleh and Kuipers, Fernando A. and Zussman, Gil and Van~Mieghem, Piet},
+  title = {Analyzing Cascading Failures in Power Grids under the {AC} and {DC} Power Flow Models},
+  journal = {SIGMETRICS Perform. Eval. Review},
+  volume = {45},
+  number = {2},
+  pages = {198--203},
+  year = {2018},
+  doi = {10.1145/3199524.3199559}
+}
+
+@inproceedings{Liu2022,
+  author = {Liu, Yijing and Zhang, Anna and Dehghanian, Pooria and Jung, Jung~Kyo and Habiba, Ummay and Overbye, Thomas~J.},
+  title = {Modeling and Analysis of Cascading Failures in Large-Scale Power Grids},
+  booktitle = {Proc. {IEEE} Kansas Power and Energy Conference (KPEC)},
+  year = {2022},
+  address = {Manhattan, KS, USA}
+}
+
+@article{RahnamayNaeini2014,
+  author = {Rahnamay-Naeini, Mahshid and Wang, Zhuo and Ghani, Nasir and Mammoli, A. and Hayat, M. M.},
+  title = {Stochastic analysis of cascading-failure dynamics in power grids},
+  journal = {IEEE Transactions on Power Systems},
+  volume = {29},
+  number = {4},
+  pages = {1767--1779},
+  year = {2014},
+  doi = {10.1109/TPWRS.2014.2301797}
+}
+
+@article{Sami2024,
+  author = {Sami, Naeem~Md and Naeini, Mia},
+  title = {Machine learning applications in cascading failure analysis in power systems: A review},
+  journal = {Electric Power Systems Research},
+  volume = {232},
+  pages = {110415},
+  year = {2024},
+  doi = {10.1016/j.epsr.2024.110415}
+}
+
+@misc{Pani2024,
+  author = {Pani, Samita~Rani and Bera, Pallav~Kumar and Samal, Rajat~Kanti},
+  title = {Predicting Cascading Failures in Power Systems using Machine Learning},
+  howpublished = {arXiv preprint arXiv:2503.00567},
+  year = {2024}
+}
+
+@inproceedings{Chadaga2023,
+  author = {Chadaga, Sudeep and Wu, Xuanxuan and Modiano, Eytan},
+  title = {Power failure cascade prediction using graph neural networks},
+  booktitle = {Proc. {IEEE} Int. Conf. on Communications, Control, and Computing Tech. for Smart Grids (SmartGridComm)},
+  year = {2023},
+  pages = {1--7}
+}
+
+@techreport{USCanada2004,
+  author = {{U.S.-Canada Power System Outage Task Force}},
+  title = {Final Report on the August 14, 2003 Blackout in the United States and Canada: Causes and Recommendations},
+  institution = {U.S. Dept. of Energy and Natural Resources Canada},
+  year = {2004}
+}
+
+@inproceedings{kipf2017semi,
+  title={Semi-Supervised Classification with {Graph} {Convolutional} {Networks}},
+  author={Kipf, Thomas N. and Welling, Max},
+  booktitle={International Conference on Learning Representations ({ICLR})},
+  year={2017}
+}
+
+@article{wu2025meta,
+  title={Meta-Learning Enhanced Physics-Informed {Graph} Attention Convolutional Network for Power System State Estimation},
+  author={Wu, Zhenning and Xu, Yang and Wang, Jie and Lyu, Chen},
+  journal={{IEEE} Transactions on Network Science and Engineering},
+  volume={12},
+  number={1},
+  pages={1--14},
+  year={2025}
+}
+
+
+@inproceedings{devlin2019bert,
+  title={{BERT}: Pre-training of Deep Bidirectional Transformers for Language Understanding},
+  author={Devlin, Jacob and Chang, Ming-Wei and Lee, Kenton and Toutanova, Kristina},
+  booktitle={Proceedings of the 2019 Conference of the North {American} Chapter of the Association for Computational Linguistics: Human Language Technologies, Volume 1},
+  pages={4171--4186},
+  year={2019}
+}
+
+@inproceedings{fey2019pytorch,
+  title={Fast Graph Representation Learning with {PyTorch} {Geometric}},
+  author={Fey, Matthias and Lenssen, Jan Eric},
+  booktitle={ICLR Workshop on Representation Learning on Graphs and Manifolds},
+  year={2019}
+}
+
+@inproceedings{sundararajan2017axiomatic,
+  title={Axiomatic Attribution for Deep Networks},
+  author={Sundararajan, Mukund and Taly, Ankur and Yan, Qiqi},
+  booktitle={International Conference on Machine Learning (ICML)},
+  pages={3319--3328},
+  year={2017},
+  organization={PMLR}
+}
+

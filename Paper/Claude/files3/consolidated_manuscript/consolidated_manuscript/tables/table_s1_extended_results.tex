@@ -1,0 +1,35 @@
+\begin{table*}[t]
+\caption{Extended SSL Transfer Results Across All Label Fractions}
+\label{tab:extended_results}
+\centering
+\small
+\begin{tabular}{llcccccc}
+\toprule
+\textbf{Task} & \textbf{Grid} & \textbf{Label \%} & \textbf{Scratch} & \textbf{SSL} & \textbf{Î”} & \textbf{Rel. Imp.} & \textbf{Seeds} \\
+\midrule
+\multirow{4}{*}{\textbf{Cascade}} & \multirow{4}{*}{IEEE-24}
+ & 10\% & 0.773 & 0.826 & +0.053 & +6.8\% & 5 \\
+ &  & 20\% & 0.818 & 0.895 & +0.077 & +9.4\% & 5 \\
+ &  & 50\% & 0.920 & 0.940 & +0.020 & +2.1\% & 5 \\
+ &  & 100\% & 0.955 & 0.958 & +0.002 & +0.3\% & 5 \\
+\cmidrule{2-8}
+ & \multirow{4}{*}{IEEE-118}
+ & 10\% & 0.262 & 0.874 & +0.613 & Î”F1=0.61 & 5 \\
+ &  & 20\% & 0.837 & 0.977 & +0.140 & +16.7\% & 5 \\
+ &  & 50\% & 0.966 & 0.992 & +0.026 & +2.7\% & 5 \\
+ &  & 100\% & 0.987 & 0.994 & +0.007 & +0.7\% & 5 \\
+\midrule
+\textbf{Power Flow} & IEEE-24
+ & 10\% & 0.0149 & 0.0106 & -0.0043 & +29.1\% & 5 \\
+ &  & 20\% & 0.0101 & 0.0078 & -0.0023 & +23.1\% & 5 \\
+ &  & 50\% & 0.0056 & 0.0048 & -0.0008 & +13.7\% & 5 \\
+ &  & 100\% & 0.0040 & 0.0035 & -0.0005 & +13.0\% & 5 \\
+\midrule
+\textbf{Line Flow} & IEEE-24
+ & 10\% & 0.0084 & 0.0062 & -0.0022 & +26.4\% & 5 \\
+ &  & 20\% & 0.0056 & 0.0044 & -0.0011 & +20.5\% & 5 \\
+ &  & 50\% & 0.0031 & 0.0026 & -0.0005 & +16.6\% & 5 \\
+ &  & 100\% & 0.0022 & 0.0021 & -0.0000 & +2.3\% & 5 \\
+\bottomrule
+\end{tabular}
+\end{table*}

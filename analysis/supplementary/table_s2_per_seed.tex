@@ -1,0 +1,15 @@
+\begin{table*}[t]
+\caption{Per-Seed Results Breakdown for Cascade Prediction (10\% Labels)}
+\label{tab:per_seed}
+\centering
+\begin{tabular}{lcccccc}
+\toprule
+ & \multicolumn{5}{c}{\textbf{Random Seed}} & \\
+\cmidrule{2-6}
+\textbf{Method} & \textbf{42} & \textbf{123} & \textbf{456} & \textbf{789} & \textbf{1337} & \textbf{Mean±Std} \\
+\midrule
+Scratch & 0.772 & 0.772 & 0.797 & 0.751 & 0.775 & 0.773±0.015 \\
+SSL Pretrained & 0.816 & 0.848 & 0.838 & 0.827 & 0.802 & \textbf{0.826±0.016} \\
+\bottomrule
+\end{tabular}
+\end{table*}

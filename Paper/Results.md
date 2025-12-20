@@ -19,7 +19,7 @@ This document summarizes the experimental results supporting the paper's primary
 | WP4 | PF/Line Flow Transfer | Complete | **PF +29.1%, Line Flow +26.4% at 10% labels** (5-seed validated) |
 | WP5 | SSL Pretraining | Complete | +6.8% F1 at 10% labels (cascade, 5-seed validated) |
 | WP6 | Cascade Transfer | Complete | AUC-ROC 0.93 explanation fidelity |
-| WP7 | Robustness | Complete | +22% SSL advantage at 1.3x load |
+| WP7 | Robustness | Complete | +22% SSL advantage at 1.3x load (single-seed, preliminary) |
 | WP8 | Paper Artifacts | Complete | MODEL_CARD.md, figures, tables |
 | WP9 | Scalability (ieee118) | Complete | SSL stabilizes learning at ≤20% labels; both converge at higher labels |
 
@@ -48,6 +48,8 @@ This document summarizes the experimental results supporting the paper's primary
 3. **Scalability**: SSL stabilization effect is most pronounced on larger grids (IEEE-118) with severe class imbalance
 
 *Full label-fraction sweep tables (20%, 50%) available in detailed sections below.*
+
+**Statistical Significance:** All SSL improvements at 10% labels are statistically significant (Welch's t-test, p < 0.01 for all comparisons). Effect sizes are large (Cohen's d > 3.0). See [Statistical_Tests.md](Statistical_Tests.md) for full analysis including per-seed data and methodology.
 
 ---
 
@@ -280,7 +282,7 @@ The SSL pretraining approach demonstrates consistent benefits across all evaluat
 | **Cascade Prediction** | ieee24 | F1 Score | +6.8% improvement (5-seed validated) |
 | **Power Flow (PF)** | ieee24 | MAE | +29.1% improvement (5-seed validated) |
 | **Line Flow Prediction** | ieee24 | MAE | +26.4% improvement (5-seed validated) |
-| **Robustness (OOD)** | ieee24 | F1 @ 1.3x load | +22% advantage |
+| **Robustness (OOD)** | ieee24 | F1 @ 1.3x load | +22% advantage (single-seed, preliminary) |
 | **Explainability** | ieee24 | AUC-ROC | 0.93 fidelity |
 | **Cascade (Large Grid)** | ieee118 | F1 Score | +234% (ΔF1=+0.61); SSL stable (±0.05), scratch unstable (±0.24) (5-seed) |
 
@@ -364,6 +366,8 @@ To ensure fair evaluation and avoid training artifacts:
 **Pretrained SSL Encoders**:
 - PF: `outputs/ssl_pf_ieee24_20251213_200338/best_model.pt`
 - Line Flow: `outputs/ssl_opf_ieee24_20251213_202348/best_model.pt`
+
+**Note on folder naming**: Output folders use legacy `opf_*` prefixes for Line Flow results. The task is **Line Flow prediction** (predicting P_ij, Q_ij branch flows), not Optimal Power Flow (dispatch optimization). The naming reflects early development history; all documentation uses the correct "Line Flow" terminology.
 
 ---
 
@@ -466,7 +470,7 @@ python analysis/generate_tables.py
 - Benefits persist even at 100% labels (2-13% improvement)
 - Low variance across seeds demonstrates training stability at low-to-medium label fractions
 - Note: Line flow SSL at 100% labels shows higher variance (one seed outlier with MAE 0.003 vs ~0.002 for others) - this is expected as SSL provides diminishing benefits when abundant labels are available
-- Results generated via: `python scripts/train_pf_opf.py --task [pf|opf] --run_multi_seed`
+- Results generated via: `python scripts/train_pf_opf.py --task [pf|opf] --run_multi_seed` (Note: `--task opf` runs Line Flow prediction; legacy CLI naming)
 
 ---
 

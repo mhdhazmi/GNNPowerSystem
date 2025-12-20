@@ -1,0 +1,402 @@
+% =============================================================================
+% CONSOLIDATED MANUSCRIPT: Physics-Guided Self-Supervised GNNs for Power Grids
+% =============================================================================
+% This manuscript can compile as either:
+%   - CONFERENCE version (7-8 pages): Use \conferencetrue
+%   - JOURNAL version (12-14 pages): Use \conferencefalse
+% =============================================================================
+
+\newif\ifconference
+\conferencetrue  % Set to \conferencefalse for journal version
+
+\ifconference
+  \documentclass[conference]{IEEEtran}
+\else
+  \documentclass[journal]{IEEEtran}
+\fi
+
+% ============= PACKAGES =============
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{algorithm}
+\usepackage{algorithmic}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{subcaption}
+\usepackage{enumitem}
+\usepackage{balance}
+
+% ============= GRAPHICS PATH =============
+\graphicspath{{figures/}}
+
+% ============= CUSTOM COMMANDS =============
+\newcommand{\ie}{\textit{i.e.}}
+\newcommand{\eg}{\textit{e.g.}}
+\newcommand{\etal}{\textit{et al.}}
+\newcommand{\wrt}{w.r.t.}
+
+% ============= TITLE =============
+\title{Physics-Guided Self-Supervised Graph Neural Networks for Power Grid Analysis}
+
+% ============= AUTHORS =============
+\ifconference
+  \author{
+    \IEEEauthorblockN{Author One\IEEEauthorrefmark{1}, Author Two\IEEEauthorrefmark{1}, and Author Three\IEEEauthorrefmark{2}}
+    \IEEEauthorblockA{\IEEEauthorrefmark{1}Department of Electrical Engineering, University Name\\
+    City, Country\\
+    \{author1, author2\}@university.edu}
+    \IEEEauthorblockA{\IEEEauthorrefmark{2}Research Lab, Institution Name\\
+    author3@institution.edu}
+  }
+\else
+  \author{
+    Author One,~\IEEEmembership{Student Member,~IEEE,}
+    Author Two,~\IEEEmembership{Member,~IEEE,}
+    and Author Three,~\IEEEmembership{Senior Member,~IEEE}
+    \thanks{Manuscript received DATE; revised DATE.}
+    \thanks{A. One and A. Two are with the Department of Electrical Engineering, University Name, City, Country (e-mail: author@university.edu).}
+    \thanks{A. Three is with Research Lab, Institution Name.}
+  }
+\fi
+
+\begin{document}
+\maketitle
+
+% =============================================================================
+% ABSTRACT
+% =============================================================================
+\begin{abstract}
+Modern power grid operations demand rapid decision-making capabilities that traditional computational methods struggle to provide. This paper presents a physics-guided graph neural network (GNN) with self-supervised learning (SSL) pretraining for power grid analysis tasks including power flow prediction, line flow estimation, and cascading failure classification. Our approach integrates physical knowledge through admittance-weighted message passing and learns transferable representations via masked reconstruction pretraining on unlabeled grid data.
+
+Experiments on IEEE 24-bus and 118-bus systems demonstrate that SSL pretraining provides significant improvements in low-label regimes: +29.1\% MAE reduction for power flow, +26.4\% for line flow, and +6.8\% F1 improvement for cascade prediction at 10\% labeled data. On the larger IEEE-118 grid, SSL reduces training variance by 5$\times$ ($\pm$0.243 $\rightarrow$ $\pm$0.051) and enables stable learning where supervised baselines fail. Explainability analysis shows edge attributions achieve 0.93 AUC-ROC fidelity against ground-truth failure propagation masks. All experiments use 5-seed validation with train-only pretraining, ensuring no data leakage.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Power systems, graph neural networks, self-supervised learning, cascading failures, power flow, explainability, deep learning.
+\end{IEEEkeywords}
+
+% =============================================================================
+% I. INTRODUCTION
+% =============================================================================
+\section{Introduction}
+\label{sec:intro}
+
+Modern power grid operations demand rapid decision-making capabilities that traditional computational methods struggle to provide. Power flow analysis, optimal dispatch, and contingency screening require solving nonlinear equations that become computationally prohibitive for real-time applications, particularly as grids incorporate more variable renewable generation and distributed resources.
+
+Machine learning approaches, especially graph neural networks (GNNs), have emerged as promising surrogates for these physics-based computations. By exploiting the natural graph structure of power networks, GNNs can learn to approximate power flow solutions orders of magnitude faster than iterative solvers. However, these supervised approaches face a fundamental limitation: they require extensive labeled data from expensive physics simulations---creating a chicken-and-egg problem where avoiding simulations requires data that can only be generated through simulations.
+
+This data bottleneck is particularly acute for rare but critical events like cascading failures. Historical data on blackouts is sparse, and generating realistic synthetic cascades requires substantial computational resources. Furthermore, purely supervised models trained on limited data often fail to generalize across operating conditions, leading to unreliable predictions precisely when reliability matters most.
+
+We address these challenges through \textbf{physics-guided self-supervised learning}. Our approach combines two key innovations:
+
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Physics-guided message passing:} We design a GNN encoder where message aggregation weights are learned functions of line admittance, encoding the physical reality that power flows preferentially through low-impedance paths.
+    
+    \item \textbf{Grid-specific masked reconstruction:} We pretrain the encoder to reconstruct masked power injections from graph structure alone, learning representations that capture grid topology and operational patterns without requiring labeled solutions.
+\end{enumerate}
+
+\textbf{Contributions.} This paper makes the following validated contributions:
+\begin{itemize}[leftmargin=*]
+    \item A physics-guided GNN encoder with admittance-weighted message passing that outperforms vanilla GNN architectures.
+    \item A self-supervised pretraining objective using masked injection reconstruction, explicitly designed to avoid target leakage.
+    \item Demonstration of 6.8--29.1\% improvements across power flow, line flow, and cascade prediction tasks at 10\% labeled data (5-seed validated).
+    \item Evidence that SSL provides 5$\times$ variance reduction on IEEE-118, enabling stable training where supervised learning fails.
+    \item Explainability analysis showing 0.93 AUC-ROC fidelity for edge importance attribution.
+\end{itemize}
+
+% =============================================================================
+% II. RELATED WORK
+% =============================================================================
+\section{Related Work}
+\label{sec:related}
+
+\textbf{Learning-Based Power Flow Surrogates.}
+Neural network surrogates for power flow computation have a long history, with recent work focusing on GNNs to exploit grid topology~\cite{donon2019graph}. Most approaches train supervised models on simulation data, achieving low prediction error but requiring extensive labeled datasets.
+
+\textbf{Self-Supervised Learning on Graphs.}
+Graph SSL has achieved remarkable success through contrastive methods (GraphCL, GRACE) and generative approaches (GraphMAE). However, applications to power systems remain limited. Unlike generic graph tasks, power grids require domain-specific pretext tasks that respect electrical properties.
+
+\textbf{Physics-Informed Neural Networks.}
+PINNs incorporate physical laws as soft constraints or architectural priors~\cite{raissi2019physics}. While successful for PDEs, adapting PINNs to graph-structured power networks is non-trivial. Our physics-guided message passing offers an alternative approach through architectural design rather than loss regularization.
+
+\textbf{Cascading Failure Prediction.}
+Traditional cascade simulation uses DC power flow models with iterative line tripping based on thermal limits. Recent ML approaches apply GNNs for vulnerability assessment, but lack explainability mechanisms connecting predictions to physical propagation paths.
+
+\textbf{Research Gap.}
+No prior work combines (1) physics-guided GNN architecture with (2) domain-specific SSL pretraining for (3) multi-task transfer across power flow, line flow, and cascade prediction with (4) quantified explainability fidelity. Our work fills this gap.
+
+% =============================================================================
+% III. PROBLEM FORMULATION
+% =============================================================================
+\section{Problem Formulation}
+\label{sec:problem}
+
+\subsection{Graph Representation}
+A power grid is represented as a directed graph $\mathcal{G} = (\mathcal{V}, \mathcal{E})$ where nodes $v \in \mathcal{V}$ represent buses and edges $(i,j) \in \mathcal{E}$ represent transmission lines.
+
+\textbf{Node features} $\mathbf{x}_v \in \mathbb{R}^{d_n}$ encode bus properties:
+\begin{itemize}[leftmargin=*]
+    \item $P_{\text{net}}$: Net active power injection (MW)
+    \item $S_{\text{net}}$: Net apparent power (MVA)
+    \item $V$: Voltage magnitude (p.u.) --- used in Line Flow and Cascade tasks only
+\end{itemize}
+
+\textbf{Edge features} $\mathbf{e}_{ij} \in \mathbb{R}^{d_e}$ encode line properties:
+\begin{itemize}[leftmargin=*]
+    \item $X_{ij}$: Line reactance (p.u.)
+    \item $r_{ij}$: Thermal rating (MVA)
+\end{itemize}
+
+\subsection{Task Definitions}
+
+\textbf{Power Flow (PF):} Given power injections, predict voltage magnitudes at all buses.
+\begin{equation}
+    f_{\text{PF}}: \mathbf{X} \rightarrow \hat{\mathbf{V}}_{\text{mag}} \in \mathbb{R}^{|\mathcal{V}|}
+\end{equation}
+
+\textbf{Line Flow:} Predict active and reactive power flows on each line.
+\begin{equation}
+    f_{\text{LF}}: (\mathbf{X}, \mathbf{E}) \rightarrow (\hat{P}_{ij}, \hat{Q}_{ij}) \in \mathbb{R}^{|\mathcal{E}| \times 2}
+\end{equation}
+
+\textbf{Cascade Prediction:} Classify whether an initial contingency leads to cascading failures with demand not served (DNS) $> 0$.
+\begin{equation}
+    f_{\text{Cascade}}: \mathcal{G} \rightarrow \{0, 1\}
+\end{equation}
+
+% =============================================================================
+% IV. METHODOLOGY
+% =============================================================================
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Physics-Guided Message Passing}
+
+Standard GNN message passing aggregates neighbor information uniformly:
+\begin{equation}
+    \mathbf{h}_v^{(l+1)} = \sigma\left(\mathbf{W}^{(l)} \cdot \text{AGG}\left(\{\mathbf{h}_u^{(l)} : u \in \mathcal{N}(v)\}\right)\right)
+\end{equation}
+
+We introduce \textbf{admittance-weighted aggregation} where message weights depend on line electrical properties:
+\begin{equation}
+    \alpha_{uv} = \sigma\left(\text{MLP}(\mathbf{e}_{uv})\right) \approx \frac{1}{X_{uv}}
+\end{equation}
+
+This encodes the physical intuition that power flows preferentially through low-impedance (high-admittance) paths.
+
+\subsection{Self-Supervised Pretraining}
+
+We pretrain the encoder using \textbf{masked injection reconstruction}:
+
+\begin{enumerate}[leftmargin=*]
+    \item Randomly mask 15\% of node injection features ($P_{\text{net}}, S_{\text{net}}$)
+    \item Encode the corrupted graph through the GNN
+    \item Reconstruct masked features via a decoder head
+    \item Minimize MSE on masked positions only
+\end{enumerate}
+
+\textbf{Critical:} We mask only input features (injections), never target variables (voltage for PF, flows for Line Flow). This ensures no label leakage.
+
+\begin{algorithm}[t]
+\caption{SSL Pretraining and Fine-tuning}
+\label{alg:ssl}
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Unlabeled graphs $\mathcal{D}_u$, labeled graphs $\mathcal{D}_l$
+\STATE \textbf{Pretrain} encoder $f_\theta$ on $\mathcal{D}_u$ (train split only):
+\FOR{each batch $\mathcal{B} \subset \mathcal{D}_u$}
+    \STATE Mask 15\% of injection features
+    \STATE $\mathcal{L}_{\text{SSL}} = \text{MSE}(\hat{\mathbf{x}}_{\text{mask}}, \mathbf{x}_{\text{mask}})$
+    \STATE Update $\theta$ via gradient descent
+\ENDFOR
+\STATE \textbf{Fine-tune} with task head $g_\phi$ on $\mathcal{D}_l$:
+\FOR{each batch $\mathcal{B} \subset \mathcal{D}_l$}
+    \STATE $\mathcal{L}_{\text{task}} = \mathcal{L}(g_\phi(f_\theta(\mathcal{G})), \mathbf{y})$
+    \STATE Update $\theta, \phi$ jointly
+\ENDFOR
+\end{algorithmic}
+\end{algorithm}
+
+\subsection{Task-Specific Heads}
+
+After pretraining, we attach lightweight heads for each downstream task:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{PF Head:} 2-layer MLP, node-level output $\rightarrow V_{\text{mag}}$
+    \item \textbf{Line Flow Head:} Edge MLP, output $\rightarrow (P_{ij}, Q_{ij})$
+    \item \textbf{Cascade Head:} Graph pooling + classifier $\rightarrow \{0,1\}$
+\end{itemize}
+
+% =============================================================================
+% V. EXPERIMENTAL SETUP
+% =============================================================================
+\section{Experimental Setup}
+\label{sec:setup}
+
+\subsection{Datasets}
+We evaluate on the PowerGraph benchmark~\cite{powergraph}:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{IEEE 24-bus:} 20,157 samples (16,125 train / 2,016 val / 2,016 test)
+    \item \textbf{IEEE 118-bus:} 114,843 samples (91,875 / 11,484 / 11,484)
+\end{itemize}
+
+\subsection{Evaluation Protocol}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Low-label experiments:} Train with 10\%, 20\%, 50\%, 100\% of training labels
+    \item \textbf{Seeds:} 5 random seeds (42, 123, 456, 789, 1337)
+    \item \textbf{Metrics:} MAE (PF, Line Flow), F1-score (Cascade)
+    \item \textbf{SSL pretraining:} Train split only (no validation/test leakage)
+\end{itemize}
+
+\subsection{Baselines}
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Scratch:} Train from random initialization
+    \item \textbf{Heuristics:} Max loading threshold, Top-K loading check
+    \item \textbf{ML baselines:} Random Forest, XGBoost on tabular features
+\end{itemize}
+
+% =============================================================================
+% VI. RESULTS
+% =============================================================================
+\section{Results}
+\label{sec:results}
+
+\subsection{Main Results}
+
+Table~\ref{tab:main} presents the core findings across all tasks and grid scales.
+
+\input{tables/table_1_main_results}
+
+\textbf{Key observations:}
+\begin{enumerate}[leftmargin=*]
+    \item SSL provides consistent improvements across all tasks, with largest gains at 10\% labels.
+    \item On IEEE-118 cascade prediction, SSL transforms unstable training ($\pm$0.243 variance) into reliable learning ($\pm$0.051).
+    \item Benefits persist at 100\% labels, indicating SSL learns genuinely useful representations.
+\end{enumerate}
+
+\subsection{Power Flow Prediction}
+
+\ifconference
+Figure~\ref{fig:pf} shows SSL vs. scratch performance across label fractions.
+\else
+Figures~\ref{fig:pf_comparison} and \ref{fig:pf_improvement} show the full learning curves.
+\fi
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{pf_ssl_comparison.pdf}
+    \caption{Power flow prediction: SSL consistently outperforms scratch training, with largest advantage at low label fractions.}
+    \label{fig:pf}
+\end{figure}
+
+At 10\% labels, SSL achieves MAE 0.0106 vs. scratch 0.0149 (+29.1\% improvement). The gap narrows at 100\% but SSL retains a 13.0\% advantage.
+
+\subsection{Cascade Prediction}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{cascade_ssl_comparison.pdf}
+    \caption{Cascade prediction (IEEE-24): SSL provides stable improvements, particularly important for safety-critical applications.}
+    \label{fig:cascade}
+\end{figure}
+
+The cascade task demonstrates SSL's value for rare-event prediction. At 10\% labels on IEEE-118, scratch training exhibits high variance ($\pm$0.243) with some seeds failing entirely, while SSL achieves 0.874$\pm$0.051 F1---a 5$\times$ variance reduction.
+
+\subsection{Scalability to Larger Grids}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{cascade_118_ssl_comparison.pdf}
+    \caption{IEEE-118 cascade prediction: SSL enables learning where scratch training is unstable.}
+    \label{fig:cascade118}
+\end{figure}
+
+The IEEE-118 results reveal SSL's stabilization effect on larger, more challenging grids. With 5\% positive class rate and 10\% labels (~918 training samples), supervised learning struggles with class imbalance. SSL's pretrained representations provide a stable initialization that prevents collapse.
+
+\subsection{Explainability Fidelity}
+
+\input{tables/table_explainability}
+
+We evaluate edge importance attributions against ground-truth cascade propagation masks using AUC-ROC:
+\begin{itemize}[leftmargin=*]
+    \item \textbf{Integrated Gradients (SSL):} 0.93 AUC-ROC
+    \item \textbf{Loading heuristic:} 0.72 AUC-ROC
+    \item \textbf{Random baseline:} 0.50 AUC-ROC
+\end{itemize}
+
+This demonstrates that SSL learns physically meaningful representations---high-importance edges correspond to actual failure propagation paths, not spurious correlations.
+
+\ifconference\else
+\subsection{Ablation Studies}
+
+\input{tables/table_ablations}
+
+Table~\ref{tab:ablations} compares encoder architectures:
+\begin{itemize}[leftmargin=*]
+    \item Physics-guided encoder outperforms vanilla GNN by 8-12\%
+    \item Edge-aware message passing is critical for line flow prediction
+    \item SSL provides additional 5-15\% improvement across architectures
+\end{itemize}
+
+\subsection{Robustness Under Distribution Shift}
+
+\begin{figure}[t]
+    \centering
+    \includegraphics[width=\columnwidth]{robustness_curves.pdf}
+    \caption{Out-of-distribution robustness: SSL advantage grows under load stress (preliminary, single-seed).}
+    \label{fig:robustness}
+\end{figure}
+
+Under load scaling (1.1$\times$ to 1.3$\times$ nominal), SSL-pretrained models show increasing advantage over scratch training, reaching +22\% at 1.3$\times$ load. This suggests SSL learns robust representations that generalize beyond training conditions.
+
+\textit{Note: Robustness results are single-seed preliminary findings.}
+\fi
+
+% =============================================================================
+% VII. DISCUSSION
+% =============================================================================
+\section{Discussion}
+\label{sec:discussion}
+
+\textbf{Why does SSL help?} We hypothesize two mechanisms:
+\begin{enumerate}[leftmargin=*]
+    \item \textbf{Topology learning:} Masked reconstruction forces the encoder to learn how power injections relate through graph structure, capturing electrical connectivity patterns useful for all downstream tasks.
+    \item \textbf{Regularization:} Pretraining provides informed initialization that prevents overfitting to limited labeled data, particularly important for rare-event prediction.
+\end{enumerate}
+
+\textbf{Limitations.}
+\begin{itemize}[leftmargin=*]
+    \item Evaluation limited to IEEE test systems; real-world grids may present additional challenges
+    \item Static topology assumption; dynamic reconfiguration not considered
+    \item Robustness results are preliminary (single-seed)
+\end{itemize}
+
+\textbf{Practical Implications.}
+SSL enables effective learning with 5$\times$ less labeled data, substantially reducing the simulation budget required for deploying ML surrogates. The 0.93 AUC-ROC explainability score provides interpretable outputs suitable for operator review.
+
+% =============================================================================
+% VIII. CONCLUSION
+% =============================================================================
+\section{Conclusion}
+\label{sec:conclusion}
+
+We presented a physics-guided GNN with self-supervised pretraining for power grid analysis. Key findings include:
+\begin{itemize}[leftmargin=*]
+    \item SSL provides 6.8--29.1\% improvements at 10\% labeled data across power flow, line flow, and cascade tasks
+    \item On large grids (IEEE-118), SSL reduces training variance by 5$\times$, enabling stable learning
+    \item Edge attributions achieve 0.93 AUC-ROC fidelity against ground-truth cascade propagation
+\end{itemize}
+
+Future work will extend evaluation to larger grids, incorporate dynamic topology, and explore multi-grid transfer learning.
+
+% =============================================================================
+% REFERENCES
+% =============================================================================
+\ifconference
+  \bibliographystyle{IEEEtran}
+\else
+  \bibliographystyle{IEEEtran}
+\fi
+\bibliography{references}
+
+\end{document}

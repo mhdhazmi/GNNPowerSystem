@@ -1,0 +1,29 @@
+\begin{table}[h]
+\caption{Hyperparameter Configuration}
+\label{tab:hyperparameters}
+\centering
+\begin{tabular}{lcc}
+\toprule
+\textbf{Parameter} & \textbf{SSL Pretraining} & \textbf{Fine-tuning} \\
+\midrule
+Hidden dimensions & 64 & 64 \\
+Number of GNN layers & 3 & 3 \\
+Attention heads & 4 & 4 \\
+Dropout rate & 0.1 & 0.1 \\
+Learning rate & 0.001 & 0.001 \\
+Batch size & 32 & 32 \\
+SSL epochs & 50 & -- \\
+Fine-tuning epochs & -- & 100 \\
+Early stopping patience & 10 & 10 \\
+Optimizer & Adam & Adam \\
+Weight decay & 1e-5 & 1e-5 \\
+\midrule
+\multicolumn{3}{l}{\textit{SSL Pretext Tasks}} \\
+\midrule
+Mask ratio (node) & 0.15 & -- \\
+Mask ratio (edge) & 0.15 & -- \\
+Contrastive temperature & 0.1 & -- \\
+Physics loss weight & 0.3 & -- \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,167 @@
+\section{Experimental Setup}
+\label{sec:experiments}
+
+\subsection{Datasets and Data Splits}
+\label{subsec:datasets}
+
+We evaluate our approach on the {PowerGraph} benchmark~\cite{varbella2024powergraph}, a comprehensive dataset specifically designed for graph neural network research on power system analysis tasks. {PowerGraph} provides labeled data for cascading failure prediction, power flow approximation, and line flow estimation on standard {IEEE} test systems with ground-truth explanations for explainability evaluation.
+
+We use two grids of different scales to assess both effectiveness and scalability: the {IEEE} 24-bus system (24 nodes, 68 edges) representing a small-scale transmission network, and the {IEEE} 118-bus system (118 nodes, 370 edges) representing a medium-scale interconnected grid. We note that modern learning-for-power literature often uses synthetic grids with 2,000+ buses for large-scale evaluation; our benchmark grids are standard {IEEE} test cases that enable reproducibility and comparison with prior work. All electrical quantities are normalized to per-unit values using a system base of $S_{\text{base}} = 100$ MVA, ensuring dimensionless features suitable for neural network training. Table~\ref{tab:dataset_stats} summarizes the dataset statistics.
+
+\begin{table}[t]
+\centering
+\caption{PowerGraph benchmark dataset statistics}
+\label{tab:dataset_stats}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Grid} & \textbf{Nodes} & \textbf{Edges} & \textbf{Train} & \textbf{Val} & \textbf{Test} \\
+\midrule
+IEEE 24-bus & 24 & 68 & 16,125 & 2,016 & 2,016 \\
+IEEE 118-bus & 118 & 370 & 91,875 & 11,484 & 11,484 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Each dataset is partitioned into training (80\%), validation (10\%), and test (10\%) splits. For cascading failure prediction, splits are stratified by cascade label to maintain class balance across partitions. The validation set is used exclusively for hyperparameter tuning and early stopping; the test set is held out and evaluated only once to report final metrics, ensuring no test set leakage. Table~\ref{tab:ssl_split} explicitly documents the self-supervised pretraining data partition.
+
+\begin{table}[t]
+\centering
+\caption{Self-supervised pretraining data split disclosure}
+\label{tab:ssl_split}
+\begin{tabular}{lccc}
+\toprule
+\textbf{Phase} & \textbf{Data Source} & \textbf{Labels?} & \textbf{Purpose} \\
+\midrule
+SSL Training & Train set only & No & Gradient updates \\
+SSL Checkpoint Selection & Validation set & No & Model selection \\
+Fine-tuning & Train subset (10--100\%) & Yes & Task adaptation \\
+Early stopping & Validation set & Yes & Hyperparameter tuning \\
+Evaluation & Test set (never seen) & Yes & Final metrics \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Critical disclosure}: Self-supervised pretraining computes gradients \emph{only} on the training partition (16,125 samples for {IEEE} 24-bus, 91,875 for {IEEE} 118-bus) with masked reconstruction objectives. Following standard SSL practice~\cite{hou2022graphmae,chen2020simple}, validation reconstruction loss is monitored for checkpoint selection---the encoder achieving lowest validation reconstruction loss is saved for downstream fine-tuning. Crucially, \emph{no labels} from any partition are used during pretraining; validation-based model selection uses only the unsupervised reconstruction objective. The test set is never exposed during pretraining or fine-tuning, ensuring fair evaluation. This protocol is standard in self-supervised learning, where validation-based checkpoint selection is distinct from label supervision.
+
+\subsection{Low-Label Training Protocol}
+\label{subsec:protocol}
+
+To evaluate self-supervised learning's effectiveness in data-scarce regimes, we compare two initialization strategies across multiple labeled data fractions:
+
+\begin{itemize}[itemsep=1pt]
+    \item \textbf{Scratch:} Encoder and task head randomly initialized
+    \item \textbf{SSL:} Encoder initialized from pretrained weights (Algorithm~\ref{alg:ssl_pipeline}), task head randomly initialized
+\end{itemize}
+
+For each initialization strategy and task, we subsample $\{10\%, 20\%, 50\%, 100\%\}$ of the labeled training set and fine-tune for 50--100 epochs with early stopping on validation metrics. To assess statistical significance and training stability, experiments on {IEEE} 24-bus use 5 random seeds (42, 123, 456, 789, 1337), reporting mean $\pm$ standard deviation. Results on {IEEE} 118-bus at 100\% labels also use 5 seeds, but low-label fractions (10--50\%) use 5 seeds to characterize the high-variance scratch training baseline that motivated our {SSL} approach.
+
+\textbf{Improvement metric convention}: For metrics where higher is better (F1-score), improvement is calculated as $(SSL - Scratch)/Scratch \times 100\%$. For metrics where lower is better ({MAE}), improvement is $(Scratch - SSL)/Scratch \times 100\%$. This convention ensures positive percentages consistently indicate {SSL} outperforming scratch training.
+
+\subsection{Model Architecture and Hyperparameters}
+\label{subsec:hyperparams}
+
+Table~\ref{tab:hyperparameters} lists the model configuration and training hyperparameters, which are shared across all tasks unless otherwise noted. The {PhysicsGuidedEncoder} consists of 4 convolutional layers with hidden dimension 128, ReLU activations, and dropout rate 0.1. Task-specific heads are two-layer {MLP}s with hidden dimension 64.
+
+\begin{table}[t]
+\centering
+\caption{Model architecture and training hyperparameters}
+\label{tab:hyperparameters}
+\begin{tabular}{lc}
+\toprule
+\textbf{Parameter} & \textbf{Value} \\
+\midrule
+\multicolumn{2}{l}{\textit{Architecture}} \\
+Conv layers & 4 \\
+Hidden dimension & 128 \\
+Dropout rate & 0.1 \\
+Head hidden dimension & 64 \\
+\midrule
+\multicolumn{2}{l}{\textit{Training}} \\
+Optimizer & AdamW \\
+Learning rate & $10^{-3}$ \\
+Weight decay & $10^{-4}$ \\
+Batch size & 64 \\
+SSL pretraining epochs & 50 \\
+Fine-tuning epochs & 50--100 \\
+LR scheduler & Cosine annealing \\
+Early stopping patience & 20 epochs \\
+\midrule
+\multicolumn{2}{l}{\textit{Self-Supervised Learning}} \\
+Masking ratio (nodes) & 15\% \\
+Masking ratio (edges) & 15\% \\
+Mask token probability & 80\% \\
+Random replacement & 10\% \\
+Unchanged probability & 10\% \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+All models are implemented in {PyTorch} 2.0 with {PyTorch Geometric} 2.3 and trained on a single NVIDIA A100 GPU. Training time per task ranges from 10 minutes ({IEEE} 24-bus) to 2 hours ({IEEE} 118-bus) for full training runs. Self-supervised pretraining adds approximately 30 additional minutes per task. Each task requires a separate pretraining run with task-appropriate input features (excluding prediction targets to prevent leakage), but pretrained weights are reused across all label fractions within each task.
+
+\subsection{Baseline Methods}
+\label{subsec:baselines}
+
+We compare against multiple baseline categories to contextualize {GNN} performance and validate that our results are not trivially achievable.
+
+\textbf{Machine Learning Baselines:} We train traditional {ML} models (Random Forest with 100 trees, XGBoost with 100 trees) on 20 engineered tabular features summarizing grid state: maximum, mean, and standard deviation of bus voltages, active/reactive power injections, line loadings (apparent power flow divided by thermal rating), and active/reactive power flows. These features are computed per graph and fed to {ML} classifiers for cascade prediction or regressors for power flow tasks. Hyperparameters are tuned on the validation set via grid search. This baseline tests whether graph structure provides value beyond aggregate statistics.
+
+\begin{table}[t]
+\centering
+\caption{Input feature comparison for cascade prediction. Both GNN and baselines receive identical raw features; baselines additionally use hand-crafted statistics.}
+\label{tab:feature_comparison}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Input Feature} & \textbf{GNN} & \textbf{ML Baselines} \\
+\midrule
+\multicolumn{3}{l}{\textit{Node-level (per bus)}} \\
+\quad $P_{\text{net}}$, $S_{\text{net}}$, $V$ & \checkmark & \checkmark \\
+\midrule
+\multicolumn{3}{l}{\textit{Edge-level (per line)}} \\
+\quad $P_{ij}$, $Q_{ij}$ (line flows) & \checkmark & \checkmark \\
+\quad $x_{ij}$, $S_{\max,ij}$ (parameters) & \checkmark & \checkmark \\
+\midrule
+\multicolumn{3}{l}{\textit{Derived features}} \\
+\quad Loading $|S_{ij}|/S_{\max,ij}$ & Learned & Pre-computed \\
+\quad Loading statistics (max, p95) & Learned & Pre-computed \\
+\quad Overload counts & Learned & Pre-computed \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:feature_comparison} clarifies that the GNN and ML baselines receive identical raw features for cascade prediction. The baselines additionally use hand-crafted derived features (loading ratios, percentiles, overload counts) that encode domain knowledge about cascade risk. The GNN must learn these relationships from raw features, making its superior performance more notable.
+
+\textbf{Heuristic Baselines for Cascade Prediction:} We evaluate three graph-level threshold rules:
+\begin{itemize}[itemsep=1pt]
+    \item \textbf{Max Loading:} Predict cascade if $\max_{(i,j) \in \mathcal{E}} (|S_{ij}|/S_{\max,ij}) > \tau$
+    \item \textbf{Always Negative:} Predict no cascade for all graphs (majority class baseline)
+    \item \textbf{Top-$k$ Critical Lines:} Predict cascade if more than $k$ lines exceed loading threshold $\tau$
+\end{itemize}
+
+Thresholds $\tau$ and $k$ are selected by sweeping candidate values on the \emph{validation set only} and choosing parameters that maximize validation F1-score. The same fixed thresholds are then applied to all test graphs without further tuning. This protocol ensures fair comparison: heuristics receive the same hyperparameter tuning budget as learned models.
+
+Table~\ref{tab:baselines_summary} summarizes baseline performance on {IEEE} 24-bus cascading failure prediction at 100\% labeled data, demonstrating that {GNN}s provide substantial gains over both {ML} and heuristic approaches. The gap is even larger on {IEEE} 118-bus (F1 = 0.99 for {GNN} vs. 0.37 for XGBoost), indicating that graph structure becomes increasingly valuable at scale. Detailed per-task baseline comparisons are provided in Section~\ref{sec:results}.
+
+\begin{table}[t]
+\centering
+\caption{Cascade prediction baseline comparison ({IEEE} 24-bus, 100\% labels)}
+\label{tab:baselines_summary}
+\begin{tabular}{lcc}
+\toprule
+\textbf{Method} & \textbf{F1 Score} & \textbf{Type} \\
+\midrule
+Always Negative & 0.00 & Heuristic \\
+Max Loading ($\tau=0.8$) & 0.30 & Heuristic \\
+Top-$k$ Critical ($k=3$, $\tau=0.75$) & 0.42 & Heuristic \\
+Random Forest & 0.76 & Tabular ML \\
+XGBoost & 0.79 & Tabular ML \\
+\midrule
+GNN (Scratch) & 0.955 $\pm$ 0.007 & Graph-based \\
+GNN (SSL) & \textbf{0.958 $\pm$ 0.005} & Graph-based \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+% \subsection{Reproducibility and Code Availability}
+% \label{subsec:reproducibility}
+
+% All experiments are fully reproducible via a single command: \texttt{python analysis/run\_all.py} regenerates all results, figures, and tables from scratch using the fixed random seeds specified in \texttt{configs/splits.yaml}. The complete codebase, trained model checkpoints, and generated figures are publicly available at \texttt{[repository URL to be added upon acceptance]}. Training logs and hyperparameter configurations are saved for all experiments to facilitate replication and extension of our work.

@@ -69,6 +69,12 @@ x = [P_net, S_net, V]  # Shape: [num_nodes, 3]
 x.shape = [24, 3]
 ```
 
+**Task-Specific Inputs:** The encoder architecture is shared across all tasks, but input feature subsets are task-specific to avoid trivial leakage:
+- **Cascade & Line Flow:** Full feature set `[P_net, S_net, V]`
+- **Power Flow:** Reduced set `[P_net, S_net]` — V_mag excluded since it is the prediction target
+
+See the Observability Table in the main results for per-task input specifications.
+
 ### Edge Features (4 dimensions)
 
 Each transmission line has 4 features:
@@ -86,6 +92,21 @@ edge_attr = [P_flow, Q_flow, X, rating]  # Shape: [num_edges, 4]
 # Example for IEEE-24 (74 edges after making bidirectional):
 edge_attr.shape = [74, 4]
 ```
+
+**Task-Specific Edge Inputs:** Similar to node features, edge input subsets are task-specific to avoid trivial leakage:
+- **Cascade:** Full edge features `[P_flow, Q_flow, X, rating]` — flows are pre-outage operating point, not targets
+- **Power Flow:** Edge features `[X, rating]` — line parameters only
+- **Line Flow:** Edge features `[X, rating]` — **P_ij, Q_ij excluded since they are the prediction targets**
+
+### Complete Per-Task Input/Output Specification
+
+| Task | Node Inputs | Edge Inputs | Target | Why This Subset? |
+|------|-------------|-------------|--------|------------------|
+| **Cascade** | P_net, S_net, V | P_flow, Q_flow, X, rating | Binary (cascade/no) | All pre-outage quantities available |
+| **Power Flow** | P_net, S_net | X, rating | V_mag | V excluded (it's the target) |
+| **Line Flow** | P_net, S_net, V | X, rating | P_ij, Q_ij | Flows excluded (they're the target) |
+
+**Critical Design Decision**: The generic edge representation `[P_flow, Q_flow, X, rating]` describes all available features in the dataset. However, each task uses only the appropriate subset as inputs. For Line Flow prediction, edge inputs contain only line parameters (X, rating)—never the power flows being predicted. This prevents the trivial solution of copying input to output.
 
 ### Edge Index (Connectivity)
 
@@ -347,7 +368,7 @@ Predicts voltage magnitude at each bus.
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-**Note on angle prediction**: The codebase includes a more complex `PowerFlowHead` class in `heads.py` that predicts V_mag, sin(θ), and cos(θ) using normalized sin/cos representation to handle angle discontinuities at ±π. However, the experimental Power Flow task in this paper predicts voltage magnitude only (V_mag), matching the simplified training configuration in `train_pf_opf.py`.
+**Note on angle prediction**: The codebase includes a more complex `PowerFlowHead` class in `heads.py` that predicts V_mag, sin(θ), and cos(θ) using normalized sin/cos representation to handle angle discontinuities at ±π. However, the experimental Power Flow task in this paper predicts voltage magnitude only (V_mag), matching the simplified training configuration in the PF/Line Flow training script (`train_pf_opf.py` — legacy naming).
 
 ### Cascade Head (Binary Classification)
 
@@ -599,7 +620,7 @@ We use a **BERT-style masked reconstruction** objective adapted for graphs:
 
 1. **Learns physical relationships**: To reconstruct masked node features, the model must understand how power flows through the grid
 2. **Captures topology**: Edge reconstruction requires understanding which lines connect which buses
-3. **Grid-specific pretext**: Unlike generic graph SSL, our masking targets power-relevant features (P, Q, V)
+3. **Grid-specific pretext**: Unlike generic graph SSL, our masking targets power-relevant features (P_net, S_net, V for nodes; X, rating for edges)
 
 ### SSL Architecture
 
@@ -647,18 +668,20 @@ The key question: **Does SSL pretraining help when labeled data is limited?**
 
 We compared SSL-pretrained vs randomly initialized (scratch) encoders at different label fractions:
 
-| Label Fraction | Train Samples | Scratch F1 | SSL F1 | Improvement |
-|----------------|---------------|------------|--------|-------------|
-| **10%** | 1,612 | 0.7575 | **0.8828** | **+16.5%** |
-| **20%** | 3,225 | 0.8025 | **0.9262** | **+15.4%** |
-| **50%** | 8,062 | 0.9023 | **0.9536** | **+5.7%** |
-| **100%** | 16,125 | 0.9370 | **0.9574** | **+2.2%** |
+| Label Fraction | Scratch F1 | SSL F1 | Improvement | Seeds |
+|----------------|------------|--------|-------------|-------|
+| **10%** | 0.773 ± 0.015 | **0.826 ± 0.016** | **+6.8%** | 5 |
+| **20%** | 0.818 ± 0.019 | **0.895 ± 0.016** | **+9.4%** | 5 |
+| **50%** | 0.921 ± 0.005 | **0.940 ± 0.008** | **+2.1%** | 5 |
+| **100%** | 0.955 ± 0.007 | **0.958 ± 0.005** | **+0.3%** | 5 |
+
+*All results are mean ± std from 5-seed validation (seeds: 42, 123, 456, 789, 1337).*
 
 ### Key Findings
 
 1. **SSL provides largest gains in low-data regimes**
-   - At 10% labels: +16.5% F1 improvement (0.76 → 0.88)
-   - At 20% labels: +15.4% F1 improvement (0.80 → 0.93)
+   - At 10% labels: +6.8% F1 improvement (0.773 → 0.826)
+   - At 20% labels: +9.4% F1 improvement (0.818 → 0.895)
 
 2. **SSL reaches near-full-data performance with less data**
    - SSL at 20% labels (F1=0.93) ≈ Scratch at 100% labels (F1=0.94)
@@ -766,7 +789,9 @@ Vanilla:        Learns arbitrary patterns that happen to predict well on this da
 
 ---
 
-## Robustness Under Perturbations
+## Robustness Under Perturbations (Preliminary Single-Seed Results)
+
+*The following robustness analysis uses seed=42 with the best checkpoint from multi-seed validation. Results indicate trends but await multi-seed confirmation.*
 
 Power grids face real-world perturbations: load changes, measurement noise, and topology changes (line outages). We test model robustness under these conditions.
 
@@ -927,14 +952,15 @@ The PowerGraph GNN model:
 
 | Task | Metric | Result |
 |------|--------|--------|
-| Cascade Prediction | F1 Score | **95.83%** |
-| Cascade Prediction | Accuracy | **98.55%** |
+| Cascade Prediction (100%) | F1 Score | **95.8% ± 0.5** |
+| Power Flow (10% labels) | MAE Improvement | **+29.1%** |
+| Line Flow (10% labels) | MAE Improvement | **+26.4%** |
+| Cascade (10% labels) | F1 Improvement | **+6.8%** |
 | Explanation Quality | AUC-ROC | **0.930** |
-| Explanation Quality | Hit@5 | **94.7%** |
-| SSL Low-Label (10%) | F1 Improvement | **+16.5%** |
-| SSL Low-Label (20%) | F1 Improvement | **+15.4%** |
 | Physics Alignment | Similarity-Admittance Corr | **+0.097** (vs -0.23 vanilla) |
 | Robustness (1.3x load) | SSL Advantage | **+22.1%** |
+
+*All low-label results are multi-seed validated (5 seeds).*
 
 ### Key Innovations
 
@@ -942,8 +968,8 @@ The PowerGraph GNN model:
 - **sin/cos angle representation**: Continuous representation without discontinuities
 - **Residual connections**: Enable deep (4+ layer) networks
 - **Integrated gradients**: Robust, faithful explanations for edge importance
-- **Self-supervised pretraining**: Masked reconstruction improves low-label performance by 16%
-- **Multi-task architecture**: Ready for PF/OPF prediction expansion
+- **Self-supervised pretraining**: Masked reconstruction improves low-label performance (+6.8% cascade, +29.1% PF, +26.4% Line Flow at 10% labels)
+- **Multi-task architecture**: Ready for PF/Line Flow prediction expansion
 
 ### Paper Claim Support
 
@@ -953,7 +979,7 @@ The PowerGraph GNN model:
 |-----------------|----------|
 | Physics-consistent | Admittance-weighted message passing; +0.10 sim-admittance correlation (vs -0.23 vanilla) |
 | Self-supervised | Masked reconstruction pretraining |
-| Improves low-label | +16.5% F1 at 10% labels |
+| Improves low-label | +6.8% F1 at 10% labels (cascade, 5-seed); +29.1% PF, +26.4% Line Flow |
 | Faithful explanations | AUC-ROC 0.93 vs ground truth |
 | Robust under perturbations | +22% advantage at 1.3x load; consistent gains across all perturbation types |
 
@@ -963,7 +989,7 @@ The PowerGraph GNN model:
 src/models/
 ├── encoder.py       # PhysicsGuidedEncoder, SimpleGNNEncoder
 ├── layers.py        # PhysicsGuidedConv layer
-├── heads.py         # CascadeHead, PowerFlowHead, OPFHead
+├── heads.py         # CascadeHead, PowerFlowHead, LineFlowHead (OPFHead in code)
 ├── gnn.py           # CascadeBaselineModel with explanation methods
 └── ssl.py           # MaskedNodeReconstruction, CombinedSSL
 

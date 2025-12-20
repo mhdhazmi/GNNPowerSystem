@@ -1,0 +1,125 @@
+\section{Methodology}
+\label{sec:method}
+
+\subsection{Architecture Overview}
+\label{subsec:architecture}
+
+Our framework follows a shared-encoder paradigm: a single physics-guided graph neural network encoder learns representations from grid topology and electrical states, which are then specialized for downstream tasks via lightweight task-specific heads. This design enables effective transfer learning---representations learned during self-supervised pretraining on unlabeled data transfer to supervised fine-tuning on labeled samples, with the encoder weights providing a strong initialization that accelerates convergence and improves sample efficiency.
+
+The overall pipeline consists of three stages: (1)~\textbf{Self-supervised pretraining} on unlabeled grid operational data using masked reconstruction objectives, (2)~\textbf{Encoder transfer} where pretrained encoder weights initialize downstream models, and (3)~\textbf{Supervised fine-tuning} on task-specific labeled data with frozen or fine-tuned encoder parameters. We implement all models using {PyTorch Geometric}~\cite{fey2019pytorch}, leveraging its efficient sparse message-passing primitives for scalability to large grids.
+
+\subsection{Physics-Guided Message Passing}
+\label{subsec:message_passing}
+
+Traditional graph convolutional networks aggregate neighbor information uniformly or via learned attention weights, ignoring the physical laws governing power flow. We embed power system physics directly into the message-passing structure through admittance-weighted aggregation.
+
+\textbf{Standard message passing} updates node $i$'s representation $\mathbf{h}_i^{(\ell)}$ at layer $\ell$ via:
+\begin{equation}
+\mathbf{h}_i^{(\ell+1)} = \sigma\left(\mathbf{W}^{(\ell)} \mathbf{h}_i^{(\ell)} + \sum_{j \in \mathcal{N}(i)} \mathbf{M}^{(\ell)}(\mathbf{h}_j^{(\ell)}, \mathbf{e}_{ij})\right)
+\end{equation}
+where $\mathcal{N}(i)$ is the neighborhood of node $i$, $\mathbf{M}^{(\ell)}$ is a message function, $\mathbf{W}^{(\ell)}$ is a learnable weight matrix, and $\sigma$ is a nonlinear activation.
+
+\textbf{Physics-guided message passing} modifies this by weighting messages according to line admittance magnitude $|\mathbf{Y}_{ij}| = \sqrt{g_{ij}^2 + b_{ij}^2}$, which physically determines the strength of electrical coupling between buses:
+\begin{equation}
+\mathbf{h}_i^{(\ell+1)} = \sigma\left(\mathbf{W}^{(\ell)} \mathbf{h}_i^{(\ell)} + \sum_{j \in \mathcal{N}(i)} \frac{|\mathbf{Y}_{ij}|}{\sqrt{|\mathcal{N}(i)|}} \cdot \mathbf{M}^{(\ell)}(\mathbf{h}_j^{(\ell)}, \mathbf{e}_{ij})\right)
+\label{eq:physics_conv}
+\end{equation}
+
+The normalization by $\sqrt{|\mathcal{N}(i)|}$ prevents representation magnitudes from growing with node degree, similar to spectral graph convolution normalization~\cite{kipf2017semi}. The message function $\mathbf{M}^{(\ell)}$ is implemented as:
+\begin{equation}
+\mathbf{M}^{(\ell)}(\mathbf{h}_j, \mathbf{e}_{ij}) = \mathbf{W}_{\text{msg}}^{(\ell)} \cdot [\mathbf{h}_j \,||\, \phi(\mathbf{e}_{ij})]
+\end{equation}
+where $||$ denotes concatenation, $\phi$ is an edge feature embedding network, and $\mathbf{W}_{\text{msg}}^{(\ell)}$ are learnable parameters.
+
+This design encodes a key physical intuition: power flows preferentially through low-impedance (high-admittance) paths, analogous to current following least-resistance paths in electrical circuits. By making admittance a structural prior rather than a learned weight, we constrain the model to respect grid physics even before observing labeled data.
+
+\subsection{Encoder Architecture}
+\label{subsec:encoder}
+
+The \textbf{PhysicsGuidedEncoder} consists of $L=4$ stacked physics-guided convolutional layers (Eq.~\ref{eq:physics_conv}) with hidden dimension $d_h = 128$, ReLU activations, and dropout (rate $p=0.1$) for regularization. Input node features are first projected from $\mathbb{R}^{d_{\text{node}}}$ to $\mathbb{R}^{d_h}$ via a learnable linear layer, and edge features are similarly projected from $\mathbb{R}^{d_{\text{edge}}}$ to $\mathbb{R}^{d_h}$. After $L$ layers of message passing, each node $i$ has learned a representation $\mathbf{h}_i \in \mathbb{R}^{d_h}$ capturing both local electrical state and global topological context via multi-hop aggregation.
+
+For graph-level tasks (cascading failure prediction), node representations are aggregated into a graph embedding $\mathbf{h}_{\mathcal{G}} \in \mathbb{R}^{d_h}$ via:
+\begin{equation}
+\mathbf{h}_{\mathcal{G}} = \text{READOUT}(\{\mathbf{h}_i\}_{i \in \mathcal{V}}) = \frac{1}{|\mathcal{V}|} \sum_{i \in \mathcal{V}} \mathbf{h}_i \,||\, \max_{i \in \mathcal{V}} \mathbf{h}_i
+\end{equation}
+concatenating mean and max pooling to capture both distributional and extreme-value information---relevant for cascades where a single critical bus can trigger system-wide failure.
+
+\subsection{Task-Specific Heads}
+\label{subsec:heads}
+
+\textbf{Power Flow Head (Node-Level):} Predicts voltage magnitude $\hat{V}_i$ for each bus via a two-layer multilayer perceptron ({MLP}) applied independently to each node embedding: $\hat{V}_i = \text{MLP}_{\text{PF}}(\mathbf{h}_i)$. The {MLP} has hidden dimension 64 with ReLU activation and outputs a single scalar constrained to $[0.8, 1.2]$ via sigmoid scaling to respect physical voltage limits.
+
+\textbf{Line Flow Head (Edge-Level):} Predicts active and reactive power flows $(\hat{P}_{ij}, \hat{Q}_{ij})$ by concatenating source and target node embeddings and applying an edge-level {MLP}: $(\hat{P}_{ij}, \hat{Q}_{ij}) = \text{MLP}_{\text{LF}}([\mathbf{h}_i \,||\, \mathbf{h}_j])$. This design captures bidirectional electrical coupling: power flow from bus $i$ to $j$ depends on both buses' states.
+
+\textbf{Cascading Failure Head (Graph-Level):} A two-layer {MLP} maps the graph embedding $\mathbf{h}_{\mathcal{G}}$ to a cascade probability: $\hat{p}_{\text{cascade}} = \sigma(\text{MLP}_{\text{CF}}(\mathbf{h}_{\mathcal{G}}))$, where $\sigma$ is the sigmoid function. Training uses binary cross-entropy loss with optional class weighting to handle imbalanced datasets.
+
+\subsection{Self-Supervised Pretraining}
+\label{subsec:ssl}
+
+We design a graph-specific self-supervised learning objective that exploits the abundant unlabeled operational measurements available in modern power grids (continuously recorded bus injections, line parameters, voltage samples) without requiring expensive labels from {OPF} solvers or cascade simulations.
+
+\textbf{Masked Reconstruction Objective:} Inspired by masked language modeling in {BERT}~\cite{devlin2019bert} and recent graph autoencoders~\cite{hou2022graphmae}, we randomly mask 15\% of node features and 15\% of edge features in each training graph, then train the encoder to reconstruct the original masked values. This forces the model to learn how electrical quantities relate through grid topology and physics.
+
+\textbf{Masking Strategy:} For each selected node/edge, we apply one of three transformations with specified probabilities: (1)~Replace with a learnable mask token (80\%), (2)~Replace with random noise sampled from the feature distribution (10\%), (3)~Keep unchanged (10\%). This prevents the model from trivially identifying masked positions and encourages robust representations.
+
+\textbf{Reconstruction Architecture:} Masked node features are reconstructed via an {MLP} decoder: $\hat{\mathbf{x}}_i = \text{MLP}_{\text{node}}(\mathbf{h}_i)$. Masked edge features are reconstructed by concatenating source and target node embeddings: $\hat{\mathbf{e}}_{ij} = \text{MLP}_{\text{edge}}([\mathbf{h}_i \,||\, \mathbf{h}_j])$. Loss is computed as mean squared error over \emph{masked positions only}:
+\begin{equation}
+\mathcal{L}_{\text{SSL}} = \frac{1}{|\mathcal{M}_{\mathcal{V}}|} \sum_{i \in \mathcal{M}_{\mathcal{V}}} \|\mathbf{x}_i - \hat{\mathbf{x}}_i\|^2 + \frac{1}{|\mathcal{M}_{\mathcal{E}}|} \sum_{(i,j) \in \mathcal{M}_{\mathcal{E}}} \|\mathbf{e}_{ij} - \hat{\mathbf{e}}_{ij}\|^2
+\end{equation}
+where $\mathcal{M}_{\mathcal{V}}$ and $\mathcal{M}_{\mathcal{E}}$ are the sets of masked nodes and edges respectively.
+
+\textbf{Critical Leakage Prevention:} We strictly ensure no label leakage during pretraining. For power flow tasks, voltage magnitude $V_i$ is the prediction target and is \emph{excluded} from node features during both {SSL} pretraining and fine-tuning. For line flow tasks, edge power flows $(P_{ij}, Q_{ij})$ are excluded from edge features. Additionally, {SSL} pretraining uses \emph{only} the training partition (80\% of data)---validation and test sets are never exposed during unsupervised learning, ensuring that representations transfer fairly to held-out evaluation.
+
+\textbf{Physics-Informed Pretext Tasks:} Unlike generic graph {SSL} that might mask arbitrary features, our approach targets power-relevant quantities: bus injections $(P_{\text{net}}, S_{\text{net}})$ and line impedances $(g, b, x)$. Reconstructing masked injections requires understanding how power balances across the network (Kirchhoff's Current Law), while reconstructing masked impedances requires inferring electrical distances from voltage/power patterns (Ohm's Law for {AC} circuits). This makes the pretext task \emph{physically meaningful} rather than a purely statistical pattern-matching exercise.
+
+\subsection{Training Procedure}
+\label{subsec:training}
+
+Algorithm~\ref{alg:ssl_pipeline} summarizes the complete training pipeline.
+
+\begin{algorithm}[t]
+\caption{Physics-Guided SSL Pipeline}
+\label{alg:ssl_pipeline}
+\begin{algorithmic}[1]
+\STATE \textbf{Input:} Unlabeled graphs $\{\mathcal{G}_i\}_{i=1}^N$, labeled data $\{(\mathcal{G}_j, y_j)\}_{j=1}^M$, masking ratio $r=0.15$
+\STATE \textbf{Output:} Task-specific model $f_{\theta}$
+
+\STATE // \textbf{Phase 1: Self-Supervised Pretraining}
+\STATE Initialize encoder $E_{\phi}$ randomly
+\FOR{epoch $= 1$ to $T_{\text{pretrain}}$}
+    \FOR{each batch $\mathcal{B}$ from $\{\mathcal{G}_i\}_{i=1}^N$ (train only)}
+        \STATE $\tilde{\mathcal{B}} \leftarrow$ Mask($\mathcal{B}$, $r$) \hspace{1cm} // Mask nodes and edges
+        \STATE $\{\mathbf{h}_i\} \leftarrow E_{\phi}(\tilde{\mathcal{B}})$ \hspace{2cm} // Encode
+        \STATE $\hat{\mathbf{x}}, \hat{\mathbf{e}} \leftarrow$ Decode($\{\mathbf{h}_i\}$) \hspace{0.8cm} // Reconstruct
+        \STATE $\mathcal{L} \leftarrow$ MSE($\mathbf{x}_{\text{masked}}$, $\hat{\mathbf{x}}$) + MSE($\mathbf{e}_{\text{masked}}$, $\hat{\mathbf{e}}$)
+        \STATE Update $\phi$ via gradient descent on $\mathcal{L}$
+    \ENDFOR
+\ENDFOR
+
+\STATE // \textbf{Phase 2: Supervised Fine-Tuning}
+\STATE Initialize task head $H_{\psi}$ randomly
+\STATE Initialize encoder from pretrained: $E_{\phi'} \leftarrow E_{\phi}$
+\FOR{epoch $= 1$ to $T_{\text{finetune}}$}
+    \FOR{each batch $\mathcal{B}$ from $\{(\mathcal{G}_j, y_j)\}_{j=1}^M$}
+        \STATE $\{\mathbf{h}_i\} \leftarrow E_{\phi'}(\mathcal{B})$ \hspace{2cm} // Encode
+        \STATE $\hat{y} \leftarrow H_{\psi}(\{\mathbf{h}_i\})$ \hspace{2.5cm} // Task prediction
+        \STATE $\mathcal{L}_{\text{task}} \leftarrow$ TaskLoss($\hat{y}$, $y$)
+        \STATE Update $\phi'$, $\psi$ via gradient descent on $\mathcal{L}_{\text{task}}$
+    \ENDFOR
+\ENDFOR
+\STATE \textbf{return} $f_{\theta} = H_{\psi} \circ E_{\phi'}$
+\end{algorithmic}
+\end{algorithm}
+
+\textbf{Pretraining Phase:} We train the {SSL} model for 50 epochs using AdamW optimizer (learning rate $10^{-3}$, weight decay $10^{-4}$) with cosine annealing learning rate schedule. Batch size is 64 graphs. The pretrained encoder weights are saved when validation reconstruction loss is minimized.
+
+\textbf{Fine-Tuning Phase:} Task-specific heads are randomly initialized, and the encoder is initialized from pretrained weights. We fine-tune both encoder and head jointly for 50--100 epochs depending on task complexity, using the same optimizer configuration. Early stopping monitors validation task metric (F1-score for classification, {MAE} for regression) with patience of 20 epochs. For low-label experiments, we randomly sample the specified fraction (10\%, 20\%, 50\%, or 100\%) of labeled training data, repeating across 5 random seeds (42, 123, 456, 789, 1011) to assess statistical significance.
+
+\subsection{Explainability via Integrated Gradients}
+\label{subsec:explainability}
+
+To provide interpretable predictions for cascading failure risk, we employ Integrated Gradients~\cite{sundararajan2017axiomatic} to attribute prediction scores to individual transmission lines. For a cascade prediction $f(\mathcal{G})$, the importance of edge $(i,j)$ is computed by integrating gradients along a straight path from a baseline (zero edge features) to the actual edge features:
+\begin{equation}
+\text{IG}_{ij} = (\mathbf{e}_{ij} - \mathbf{e}^{\text{baseline}}) \cdot \int_{\alpha=0}^{1} \frac{\partial f(\mathcal{G}_{\alpha})}{\partial \mathbf{e}_{ij}} d\alpha
+\end{equation}
+where $\mathcal{G}_{\alpha}$ is the graph with edge features interpolated as $\mathbf{e}_{ij}^{(\alpha)} = \mathbf{e}^{\text{baseline}} + \alpha(\mathbf{e}_{ij} - \mathbf{e}^{\text{baseline}})$. The integral is approximated via Riemann sum with 50 steps. We evaluate explanation fidelity by comparing $\{\text{IG}_{ij}\}$ against ground-truth edge importance masks provided in the {PowerGraph} benchmark using {AUC-ROC}, which measures the method's ability to rank truly critical edges above non-critical ones.

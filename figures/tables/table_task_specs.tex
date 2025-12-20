@@ -1,0 +1,14 @@
+\begin{table}[t]
+\caption{Task Specifications with Units}
+\label{tab:tasks}
+\centering
+\begin{tabular}{llccc}
+\toprule
+\textbf{Task} & \textbf{Input} & \textbf{Output} & \textbf{Metric} & \textbf{Units} \\
+\midrule
+Cascade & Grid state $(P,S,V)$ & Binary label & F1 Score & [0,1] \\
+Power Flow & Injections $(P,S)$ & Voltage $V_{\text{mag}}$ & MAE & p.u. \\
+Line Flow & Bus states + params & Flows $(P_{ij},Q_{ij})$ & MAE & p.u. \\
+\bottomrule
+\end{tabular}
+\end{table}

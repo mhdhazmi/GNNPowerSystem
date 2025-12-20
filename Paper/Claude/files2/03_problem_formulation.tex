@@ -1,0 +1,52 @@
+\section{Problem Formulation}
+\label{sec:problem}
+
+\subsection{Graph Representation of Power Grids}
+\label{subsec:graph_rep}
+
+We represent a power grid as an undirected graph $\mathcal{G} = (\mathcal{V}, \mathcal{E})$, where nodes $v_i \in \mathcal{V}$ correspond to buses (electrical connection points) and edges $e_{ij} \in \mathcal{E}$ correspond to transmission lines and transformers connecting buses $i$ and $j$. Each node is associated with a feature vector $\mathbf{x}_i \in \mathbb{R}^{d_{\text{node}}}$ encoding the electrical state at bus $i$, and each edge is associated with a feature vector $\mathbf{e}_{ij} \in \mathbb{R}^{d_{\text{edge}}}$ capturing line impedance and capacity parameters.
+
+\textbf{Node features} ($d_{\text{node}} = 3$ for cascade and line flow tasks, $d_{\text{node}} = 2$ for power flow task):
+\begin{itemize}[itemsep=1pt]
+    \item $P_{\text{net},i}$: Net active power injection (generation minus load) at bus $i$
+    \item $S_{\text{net},i}$: Net apparent power magnitude at bus $i$
+    \item $V_i$: Voltage magnitude at bus $i$ (excluded for power flow prediction to avoid trivial leakage)
+\end{itemize}
+
+\textbf{Edge features} ($d_{\text{edge}} = 4$):
+\begin{itemize}[itemsep=1pt]
+    \item $g_{ij}$: Conductance of line $(i,j)$
+    \item $b_{ij}$: Susceptance of line $(i,j)$
+    \item $x_{ij}$: Reactance of line $(i,j)$
+    \item $S_{\max,ij}$: Thermal rating (maximum apparent power capacity) of line $(i,j)$
+\end{itemize}
+
+All electrical quantities are normalized to per-unit values with system base $S_{\text{base}} = 100$ MVA, ensuring dimensionless features in the range $[-1, 1]$ for injections and $[0.9, 1.1]$ for voltages under normal operating conditions. The admittance $Y_{ij} = g_{ij} + jb_{ij}$ relates voltage difference to power flow via the {AC} power flow equations, providing the physical coupling we leverage in our message-passing design.
+
+\subsection{Task Definitions and Evaluation Metrics}
+\label{subsec:tasks}
+
+We consider three downstream prediction tasks, each addressing a critical operational need in power system analysis. Table~\ref{tab:task_specs} summarizes the input-output specifications and evaluation metrics for each task.
+
+\begin{table}[t]
+\centering
+\caption{Task specifications, inputs, outputs, and evaluation metrics}
+\label{tab:task_specs}
+\begin{tabular}{p{1.8cm}p{2.2cm}p{1.5cm}p{1cm}}
+\toprule
+\textbf{Task} & \textbf{Output} & \textbf{Metric} & \textbf{Unit} \\
+\midrule
+Cascade & Binary graph label & F1 Score & {[}0,1{]} \\
+Power Flow & Bus voltages $V_i$ & MAE & p.u. \\
+Line Flow & Line flows $(P_{ij}, Q_{ij})$ & MAE & p.u. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Cascading Failure Prediction (Graph-Level Classification):} Given the pre-outage state of a power grid, predict whether an N-k contingency (simultaneous outage of $k$ components) will trigger a cascading failure. We define a cascade as occurring when the total demand not served (DNS) exceeds zero: $\text{DNS} = \sum_{i} (\text{load}_i - \text{served}_i) > 0$ MW. This is formulated as binary graph-level classification, where the model produces a single prediction $\hat{y} \in \{0,1\}$ per graph. Performance is evaluated using F1-score computed over test graphs, which balances precision and recall---critical for imbalanced datasets where cascades are rare events (5--20\% positive class rate depending on grid size and simulation parameters).
+
+\textbf{Power Flow Prediction (Node-Level Regression):} Predict bus voltage magnitudes $\{V_i\}_{i=1}^{|\mathcal{V}|}$ given load injections and grid topology. This approximates the solution to the {AC} power flow equations without iterative numerical methods. The model output is a vector $\hat{\mathbf{V}} \in \mathbb{R}^{|\mathcal{V}|}$ of predicted voltage magnitudes. Performance is measured by mean absolute error (MAE) in per-unit: $\text{MAE} = \frac{1}{|\mathcal{V}|} \sum_{i=1}^{|\mathcal{V}|} |V_i - \hat{V}_i|$, averaged over all buses and test samples. Typical operational voltage bounds are $0.95 \leq V_i \leq 1.05$ per-unit, making MAE values on the order of $10^{-3}$ per-unit operationally acceptable.
+
+\textbf{Line Flow Prediction (Edge-Level Regression):} Predict active and reactive power flows $\{(P_{ij}, Q_{ij})\}_{(i,j) \in \mathcal{E}}$ on all transmission lines given bus states and topology. This enables rapid screening of line loading for contingency analysis. The model outputs two scalars per directed edge: $(\hat{P}_{ij}, \hat{Q}_{ij})$. MAE is computed separately for active and reactive components, then averaged: $\text{MAE} = \frac{1}{2|\mathcal{E}|} \sum_{(i,j) \in \mathcal{E}} (|P_{ij} - \hat{P}_{ij}| + |Q_{ij} - \hat{Q}_{ij}|)$. Accurate line flow prediction is essential for identifying thermal overloads that could initiate cascades.
+
+\textbf{Improvement Metric Convention:} When comparing self-supervised pretraining ({SSL}) against scratch training, we define improvement as $(SSL - Scratch)/Scratch \times 100\%$ for metrics where higher is better (F1-score), and $(Scratch - SSL)/Scratch \times 100\%$ for metrics where lower is better ({MAE}). This convention ensures positive improvement percentages consistently indicate {SSL} outperforming scratch training.

@@ -1,0 +1,60 @@
+\documentclass[conference]{IEEEtran}
+
+% Essential packages
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{algorithm}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{url}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{multirow}
+
+% Fix for itemize spacing
+\setlist[itemize]{leftmargin=*,itemsep=2pt,topsep=4pt}
+
+\begin{document}
+
+% Title
+\title{Physics-Guided Self-Supervised Graph Neural Networks for Power Grid Analysis:\\
+Transfer Learning Across Cascade Prediction, Power Flow, and Line Flow}
+
+% Authors - to be filled in
+\author{
+    \IEEEauthorblockN{Anonymous Authors}
+    \IEEEauthorblockA{\textit{For Review}}
+}
+
+\maketitle
+
+% Abstract
+\begin{abstract}
+Modern power grid operations require rapid computational methods for decision support, but traditional solvers face severe bottlenecks. We present a physics-guided self-supervised learning framework for graph neural networks that addresses labeled data scarcity in power system analysis. Our approach embeds electrically-parameterized message passing into the encoder architecture---where edge weights are learned from line admittance features---and develops grid-specific pretext tasks (masked injection and parameter reconstruction) enabling representation learning from unlabeled operational data. Evaluated on the PowerGraph benchmark, our method achieves substantial improvements in low-label regimes: 29.1\% power flow error reduction, 26.4\% line flow error reduction, and 6.8\% F1-score improvement for cascading failure prediction---all at 10\% labeled data availability. On the IEEE 118-bus system under severe class imbalance, self-supervised pretraining dramatically reduces training instability (variance reduction from $\pm$0.243 to $\pm$0.051) while improving mean performance ($\Delta$F1 = +0.61). We achieve 0.93 AUC-ROC explainability fidelity via Integrated Gradients, addressing a recognized gap in interpretable cascade prediction.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Power systems, graph neural networks, self-supervised learning, cascading failures, power flow, optimal power flow, explainability, physics-informed machine learning
+\end{IEEEkeywords}
+
+% Main sections
+\input{01_introduction.tex}
+\input{02_related_work.tex}
+\input{03_problem_formulation.tex}
+\input{04_methodology.tex}
+\input{05_experimental_setup.tex}
+\input{06_results.tex}
+\input{07_discussion.tex}
+\input{08_conclusion.tex}
+
+% Acknowledgments (optional)
+\section*{Acknowledgments}
+This work was conducted using the PowerGraph benchmark dataset. We thank the developers of PyTorch Geometric for their open-source graph neural network library.
+
+% Bibliography
+\bibliographystyle{IEEEtran}
+\bibliography{citations}
+
+\end{document}

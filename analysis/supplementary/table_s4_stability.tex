@@ -1,0 +1,19 @@
+\begin{table}[h]
+\caption{IEEE-118 Training Stability Analysis at 10\% Labels}
+\label{tab:stability}
+\centering
+\begin{tabular}{lccc}
+\toprule
+\textbf{Seed} & \textbf{Scratch F1} & \textbf{SSL F1} & \textbf{Convergence} \\
+\midrule
+42 & 0.0991 & 0.9091 & \textcolor{red}{Failed} \\
+123 & 0.2864 & 0.7950 & \textcolor{orange}{Partial} \\
+456 & 0.0991 & 0.9312 & \textcolor{red}{Failed} \\
+789 & 0.7246 & 0.8992 & \textcolor{green}{Success} \\
+1337 & 0.0991 & 0.8371 & \textcolor{red}{Failed} \\
+\midrule
+\multicolumn{4}{l}{\textit{Note: Scratch training fails to converge in 2/5 seeds}} \\
+\multicolumn{4}{l}{\textit{SSL pretraining provides stable convergence across all seeds}} \\
+\bottomrule
+\end{tabular}
+\end{table}

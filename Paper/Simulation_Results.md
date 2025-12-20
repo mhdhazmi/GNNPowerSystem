@@ -12,9 +12,9 @@
 
 | Task | Input | Output | Metric | Units | Direction |
 |------|-------|--------|--------|-------|-----------|
-| **Cascade Prediction** | Grid state (P, Q, V, θ) | Binary graph label (cascade/no cascade) | F1 Score | [0, 1] | Higher ↑ better |
-| **Power Flow** | Load injection (P, Q) | Bus voltage magnitudes (V_mag) | MAE | per-unit (p.u.) | Lower ↓ better |
-| **Line Flow** | Bus states (P, Q, V, θ) | Line power flows (P_ij, Q_ij) | MAE | per-unit (p.u.) | Lower ↓ better |
+| **Cascade Prediction** | Grid state (P, S, V) + edge params | Binary graph label (cascade/no cascade) | F1 Score | [0, 1] | Higher ↑ better |
+| **Power Flow** | Load injection (P, S) | Bus voltage magnitudes (V_mag) | MAE | per-unit (p.u.) | Lower ↓ better |
+| **Line Flow** | Bus states (P, S, V) + edge params | Line power flows (P_ij, Q_ij) | MAE | per-unit (p.u.) | Lower ↓ better |
 
 **Cascade Prediction Details:**
 - **Granularity**: Graph-level binary classification (one prediction per grid scenario)
@@ -156,13 +156,17 @@ To contextualize GNN performance, we compare against standard ML approaches:
 
 ### Required Inputs at Inference
 
-| Task | Observable Inputs | Hidden/Predicted | Real-Time Available? |
-|------|-------------------|------------------|---------------------|
-| **Cascade** | P_load, Q_load, V_mag, V_angle, line status | P(cascade) — graph-level binary | Yes (SCADA/PMU) |
-| **Power Flow** | P_injection, Q_injection | V_mag at all buses | Yes (SCADA) |
-| **Line Flow** | P_load, Q_load, V_mag, V_angle | P_ij, Q_ij on all lines | Yes (SCADA/PMU) |
+| Task | Model Inputs (per Feature Schema) | Hidden/Predicted | Source |
+|------|-----------------------------------|------------------|--------|
+| **Cascade** | P_net, S_net, V + edge features | P(cascade) — graph-level binary | Measured/State-estimated |
+| **Power Flow** | P_net, S_net (no V) | V_mag at all buses | Measured (SCADA) |
+| **Line Flow** | P_net, S_net, V + edge params | P_ij, Q_ij on all lines | Measured/State-estimated |
 
-**Deployment Note**: All model inputs are available from standard SCADA systems or PMU measurements. No oracle information (future failures, true power flows) is required at inference time.
+**Note on feature alignment**: This table shows model inputs per the Feature Schema above. Additional quantities (e.g., V_angle) are observable from PMU measurements but not used as direct model inputs in this work. The model architecture uses a 3-dimensional node feature vector `[P_net, S_net, V]` without explicit angle representation.
+
+**Deployment Note**: All model inputs are derivable from standard SCADA systems or PMU measurements. No oracle information (future failures, true power flows) is required at inference time.
+
+**Note on Computed Quantities**: Line flow targets (P_ij, Q_ij) and line loading used in edge features are **computed** from a prior power flow solution or state estimation, not directly measured. This is consistent with operational practice where flows are derived from state estimation using measured bus quantities.
 
 ---
 
@@ -292,6 +296,8 @@ To contextualize GNN performance, we compare against standard ML approaches:
 
 **Note on 100% Variance**: SSL std at 100% labels is elevated by one outlier seed; median (0.0019) confirms typical performance. Per-seed breakdown available in supplementary materials.
 
+**Why GNN instead of direct AC flow computation?** While AC power flow equations can compute line flows from complete bus states (V, θ) and admittance (Y), this task evaluates **SSL transfer learning effectiveness**, not replacement of physics solvers. The practical value lies in: (1) learning generalizable representations that transfer across operating conditions, (2) achieving accurate predictions in low-label regimes where labeled PF solutions are scarce, and (3) enabling fast inference without iterative solving. A physics-based AC flow computation would achieve near-zero error given exact inputs—our GNN demonstrates that SSL pretraining enables accurate flow prediction even with limited training examples.
+
 #### Figure 4a: Line Flow SSL vs Scratch Comparison
 
 ![Line Flow SSL Comparison](../analysis/figures/lineflow_ssl_comparison.png)
@@ -357,7 +363,7 @@ To contextualize GNN performance, we compare against standard ML approaches:
 **Evaluation Protocol**: Compare model-derived edge importance rankings against ground-truth failure edges using AUC-ROC.
 
 **Evaluation Details:**
-- **Sample count**: Evaluated on 2,016 test graphs (IEEE 24-bus cascade test set)
+- **Sample count**: Evaluated on 489 positive cascade samples with ground-truth edge masks (from 2,016 total test graphs; only cascading scenarios have meaningful failure edges to evaluate)
 - **Ground truth**: Edge failure masks from PowerGraph `exp.mat` files, indicating which edges were involved in cascade propagation (binary per-edge labels)
 - **AUC computation**: Per-graph AUC-ROC computed by ranking all edges by importance score and comparing against ground-truth failure mask; final metric is mean AUC across test graphs
 
@@ -488,7 +494,7 @@ Label Fraction & Scratch MAE & SSL MAE & Improvement \\
 \toprule
 Task & Grid & Metric & Improvement & Seeds \\
 \midrule
-Cascade & IEEE-24 & F1 $\uparrow$ & +14.2\% & 3 \\
+Cascade & IEEE-24 & F1 $\uparrow$ & +6.8\% & 5 \\
 Cascade & IEEE-118 & F1 $\uparrow$ & +234\% ($\Delta$F1=+0.61) & 5 \\
 Power Flow & IEEE-24 & MAE $\downarrow$ & +29.1\% & 5 \\
 Line Flow & IEEE-24 & MAE $\downarrow$ & +26.4\% & 5 \\
@@ -508,7 +514,7 @@ Line Flow & IEEE-24 & MAE $\downarrow$ & +26.4\% & 5 \\
 python analysis/run_all.py
 
 # Run multi-seed cascade experiments (IEEE-24)
-python scripts/train_cascade.py --seeds 42,123,456 --grid ieee24
+python scripts/train_cascade.py --seeds 42,123,456,789,1337 --grid ieee24
 
 # Run multi-seed cascade experiments (IEEE-118)
 python scripts/train_cascade.py --seeds 42,123,456,789,1337 --grid ieee118

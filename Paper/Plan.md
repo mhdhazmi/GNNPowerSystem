@@ -3802,4 +3802,398 @@ All issues identified in Peer Review 17 have been resolved:
 - All tables match Simulation_Results.md canonical values
 - Line Flow definition consistent everywhere
 
-**STATUS: PAPER-READY FOR SUBMISSION**  
+**STATUS: PAPER-READY FOR SUBMISSION**
+
+---
+
+# Peer Review 18 Resolution Status: COMPLETE
+
+## Summary
+
+All 4 legacy artifacts identified in Peer Review 18 have been resolved:
+
+### Fixed Issues:
+- **Issue 1:** LaTeX table cascade IEEE-24 (+14.2%, 3 seeds → +6.8%, 5 seeds) - FIXED
+- **Issue 2:** Bash reproducibility command (3 seeds → 5 seeds) - FIXED
+- **Issue 3:** IEEE-118 class imbalance (~20% → ~5%) - FIXED
+- **Issue 4:** Low-label gains claim (15-37% → 6.8%-29.1%) - FIXED
+
+## Files Modified:
+1. Paper/Simulation_Results.md (lines 491, 511)
+2. Paper/Progress_Report.md (lines 468, 648, added Appendix H)
+
+## Verification Completed:
+- No remaining "+14.2%" in active documents
+- No remaining "3 seeds" alone for IEEE-24 cascade
+- No remaining "15-37%" claims
+- IEEE-118 consistently ~5%, IEEE-24 consistently ~20%
+
+**STATUS: ALL LEGACY ARTIFACTS REMOVED - PAPER-READY**
+
+---
+
+# Peer Review 19 Resolution Status: COMPLETE
+
+## Summary
+
+All 3 issues identified in Peer Review 19 have been investigated and resolved:
+
+### Issues Addressed:
+
+- **Issue 1:** Conflicting Cascade numbers (0.773/0.826 vs 0.753/0.860) - INVESTIGATED
+  - Finding: Legacy 0.753/0.860 values only in Plan.md (historical), not active docs
+  - Resolution: No fix needed—active docs already consistent with canonical values
+
+- **Issue 2:** Seed-count contradiction (3 seeds vs 5 seeds) - INVESTIGATED
+  - Finding: Already fixed in PR18
+  - Resolution: No fix needed—already addressed
+
+- **Issue 3:** Explainability sample count mismatch (2,016 vs 489) - FIXED
+  - Root cause: 2,016 = full test set, 489 = positive cascade samples with ground-truth masks
+  - Fix: Updated Simulation_Results.md to clarify 489 samples with context
+
+## Files Modified:
+1. Paper/Simulation_Results.md (line 360: explainability sample count clarified)
+2. Paper/Progress_Report.md (line 551: Appendix C entry updated, Appendix I added)
+
+## Verification Completed:
+- All explainability references now consistently report 489 samples with ground-truth masks
+- Methodology clearly explains 489 (positive cascade samples) vs 2,016 (full test set)
+- No conflicting numerical values in active submission documents
+
+**STATUS: ALL PR19 ISSUES RESOLVED - PAPER-READY FOR SUBMISSION**
+
+---
+
+# Peer Review 20 Resolution Status: COMPLETE
+
+## Summary
+
+All 2 issues identified in Peer Review 20 have been fixed:
+
+### Fixed Issues:
+
+- **Issue 1:** Legacy +14.2% in Submission_Package.md LaTeX table → Fixed to +6.8%
+- **Issue 2:** OPF naming inconsistencies in Submission_Package.md and ModelArchitecture.md → Renamed to "Line Flow"
+
+## Files Modified:
+1. Paper/Submission_Package.md (lines 1017, 1199-1202, 1953)
+2. Paper/ModelArchitecture.md (line 946)
+
+## Verification Completed:
+- No remaining "+14.2%" in any active submission document
+- No remaining "OPF" references in active submission documents
+- No remaining "3 seeds" references in active documents
+- All cascade values consistently show 0.773 → 0.826 (+6.8%, 5 seeds)
+
+**STATUS: ALL PR20 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 21 Resolution Status: COMPLETE
+
+## Summary
+
+All 3 clarity/consistency issues identified in Peer Review 21 have been addressed:
+
+### Issues Addressed:
+
+- **Issue A:** Generic vs Task-Specific Schema - FIXED
+  - Added task-specific input clarification to ModelArchitecture.md
+  - Power Flow now explicitly excludes V_mag from inputs (avoids trivial leakage)
+
+- **Issue B:** Observability - Computed vs Measured - FIXED
+  - Updated Simulation_Results.md with Source column in observability table
+  - Added note explaining computed quantities (line flows/loading) vs measured inputs
+
+- **Issue C:** Explainability Audit Lines - VERIFIED COMPLETE
+  - N=489 test cases, mean AUC aggregation, exp.mat ground-truth already documented
+
+## Files Modified:
+1. Paper/ModelArchitecture.md (lines 72-76: task-specific input clarification)
+2. Paper/Simulation_Results.md (lines 159-167: observability table with computed quantities note)
+
+## Verification Completed:
+- ModelArchitecture.md explicitly states PF excludes V_mag from inputs
+- Simulation_Results.md distinguishes measured vs computed quantities
+- Explainability section has all three audit lines (N, aggregation, ground-truth)
+
+**STATUS: ALL PR21 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 22 Resolution Status: COMPLETE
+
+## Summary
+
+All 3 issues identified in Peer Review 22 have been addressed:
+
+### Issues Addressed:
+
+- **Issue 1:** PF Target Definition Drift (V_mag vs V_mag+θ) - FIXED
+  - Updated Submission_Package.md diagram to show "V_mag only"
+  - Added clarification note explaining experiments use V_mag only
+
+- **Issue 2:** OPF Naming Leaking into Line Flow Paths - FIXED
+  - Added notes in Results.md and Submission_Package.md explaining legacy folder naming
+  - Clarified: "Line Flow prediction (P_ij, Q_ij), not Optimal Power Flow"
+
+- **Issue 3:** Line Flow "Too Easy" Concern - ADDRESSED
+  - Added "Why GNN instead of direct AC computation?" explanations
+  - Clarified task evaluates SSL transfer learning effectiveness
+  - Physics baseline would achieve near-zero error with exact inputs
+
+## Files Modified:
+1. Paper/Submission_Package.md (lines 1202, 1395, 340, 580)
+2. Paper/Simulation_Results.md (line 297)
+3. Paper/Results.md (line 368)
+
+## Verification Completed:
+- All PF diagrams consistently show "V_mag only"
+- Legacy OPF folder names are explicitly explained
+- Line Flow task value proposition is documented
+
+**STATUS: ALL PR22 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 23 Resolution Status: COMPLETE
+
+## Summary
+
+Within-document inconsistency about angle (θ/V_angle) inputs has been resolved:
+
+### Issue Addressed:
+
+- **Angle Input Inconsistency** - FIXED
+  - Task Specifications listed "(P, Q, V, θ)" - had θ
+  - Feature Schema listed "P_net, S_net, V" - no θ
+  - Observability table listed "V_angle" - had V_angle
+  - **Fix:** Aligned all tables to Feature Schema (no θ/V_angle in model inputs)
+  - Added note: V_angle is observable from PMU but not used as direct model input
+  - Updated Source column: "Measured/State-estimated" (more accurate)
+
+## Files Modified:
+1. Paper/Simulation_Results.md (lines 15-17, 159-165)
+
+## Verification Completed:
+- All three tables now show node inputs as: P_net, S_net, V (no angle)
+- Explicit note clarifies V_angle is observable but not used
+- Source column reflects Measured/State-estimated distinction
+
+**STATUS: ALL PR23 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 24 Resolution Status: COMPLETE
+
+## Summary
+
+Final consistency sweep completed. All four reviewer blockers have been addressed:
+
+### Issues Addressed:
+
+- **Issue A: Canonical Task Definition Everywhere** - FIXED
+  - Swept all docs for superseded (P, Q, V) / (P, Q, V, θ) references
+  - ModelArchitecture.md line 608: Updated SSL masking features to "(P_net, S_net, V for nodes; X, rating for edges)"
+  - Submission_Package.md line 1614: Same update
+  - Progress_Report.md line 86: Updated "(P, Q, V, status)" → "(P_net, S_net, V)"
+  - All documents now use canonical (P, S, V) notation
+
+- **Issue B: No Test Leakage Guarantee** - FIXED
+  - Added explicit "No Test Leakage Guarantee" section to Submission_Package.md (after line 668)
+  - States all hyperparameters (including classification thresholds, K values) tuned on validation set only
+  - Test set used only for final metric computation
+
+- **Issue C: SSL Objective Naming Consistency** - VERIFIED (NO CHANGES NEEDED)
+  - SSL objectives already use mechanism-based names consistently:
+    - "Masked injection reconstruction" for power flow
+    - "Masked line parameter reconstruction" for line flow
+
+- **Issue D: Cross-Document Metric Consistency** - VERIFIED
+  - Cascade: 0.773 → 0.826 (+6.8%) - consistent across all docs
+  - Power Flow: +29.1% at 10% labels - consistent
+  - Line Flow: +26.4% at 10% labels - consistent
+  - Explainability: 489 samples, AUC-ROC 0.93 - consistent
+
+## Files Modified:
+1. Paper/ModelArchitecture.md (line 608)
+2. Paper/Submission_Package.md (lines 668-672, 1614)
+3. Paper/Progress_Report.md (line 86)
+
+## Verification Completed:
+- All documents use canonical (P, S, V) notation
+- No test leakage guarantee explicitly documented
+- SSL naming consistent (mechanism-based)
+- All key metrics match across Simulation_Results.md, Submission_Package.md, Results.md, Progress_Report.md
+
+**STATUS: ALL PR24 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 25 Resolution Status: COMPLETE
+
+## Summary
+
+Final blockers identified and resolved. Paper confirmed submission-ready.
+
+### Issues Addressed:
+
+- **Issue 1: Cascade Number Consistency** - VERIFIED
+  - Comprehensive grep confirmed all submission docs use 0.773 → 0.826 (+6.8%)
+  - Legacy 0.753 → 0.860 (+14.2%) exists only in Plan.md historical documentation
+  - No changes needed - consistency confirmed
+
+- **Issue 2: Edge-Feature Leakage Perception** - FIXED
+  - Problem: Generic edge_attr = [P_flow, Q_flow, X, rating] without clarifying task-specific subsets
+  - Reviewers would ask "is Line Flow trivial?" if flows appear in both inputs and outputs
+  - Fix: Added comprehensive "Per-Task Input/Output Specification" table to ModelArchitecture.md and Submission_Package.md
+  - Explicitly states: Line Flow edge inputs = [X, rating] only, targets = [P_ij, Q_ij]
+  - Added statement: "For Line Flow prediction, edge inputs contain only line parameters—never the power flows being predicted"
+
+## Files Modified:
+1. Paper/ModelArchitecture.md (lines 96-109)
+2. Paper/Submission_Package.md (lines 1124-1137)
+
+## Verification Completed:
+- All cascade values consistently show 0.773 → 0.826 (+6.8%) across all submission docs
+- Comprehensive input/output table now in ModelArchitecture.md, Submission_Package.md, Simulation_Results.md
+- Line Flow task explicitly documented: edge inputs = [X, rating], targets = [P_ij, Q_ij]
+- No "trivial leakage" perception remaining
+
+**STATUS: ALL PR25 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 26 Resolution Status: COMPLETE
+
+## Summary
+
+OPF → Line Flow terminology standardization completed. All submission documents now clarify the distinction between "Line Flow Prediction" (our regression task) and "OPF" (Optimal Power Flow optimization in literature).
+
+### Issue Addressed:
+
+- **OPF Terminology Correction** - FIXED
+  - Problem: "OPF" incorrectly used to describe Line Flow Prediction task (predicting P_ij, Q_ij)
+  - Scope: 262 references identified across Paper/*.md files
+  - Strategy: Add clarification notes for legacy CLI flags/folder names while preserving actual file names
+  - Fix: Added "(legacy naming)" and "(OPFHead in code)" clarifications to key documents
+
+## Files Modified:
+1. Paper/ModelArchitecture.md (lines 371, 987) - Added legacy naming clarifications
+2. Paper/Submission_Package.md (line 791) - Added CLI flag clarification note
+3. Paper/Results.md (line 471) - Added CLI flag clarification note
+
+## Pre-existing Clarifications Verified:
+- Simulation_Results.md line 523: Already labeled "PF/Line Flow experiments"
+- Submission_Package.md line 340: Already has folder naming disclaimer
+- Results.md line 368: Already has folder naming disclaimer
+
+## Terminology Standard Established:
+- **Line Flow Prediction**: Our regression task predicting branch power flows (P_ij, Q_ij)
+- **OPF (Optimal Power Flow)**: Literature term for generator dispatch optimization (NOT our task)
+- **Legacy naming**: CLI flags `--task opf` and output folders `opf_*` retained for backward compatibility
+
+**STATUS: ALL PR26 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 27 Resolution Status: COMPLETE
+
+## Summary
+
+Canonical number synchronization completed. All submission documents now use multi-seed validated values from Results.md Table 1.
+
+### Issue Addressed:
+
+- **Legacy Single-Seed Values** - FIXED
+  - Problem: +16.5%/+15.4% (single-seed cascade) appeared in ModelArchitecture.md, Progress_Report.md, Submission_Package.md
+  - Canonical values: +6.8%/+9.4% (multi-seed cascade), +29.1% (PF), +26.4% (Line Flow)
+  - Fix: Replaced all single-seed tables and text with multi-seed canonical values
+
+## Files Modified:
+1. Paper/ModelArchitecture.md (lines 671-684, 951-961, 969, 980)
+2. Paper/Progress_Report.md (lines 191, 336)
+3. Paper/Submission_Package.md (lines 1679-1692, 1959-1977, 1988)
+
+## Verification Completed:
+- Grep confirms +16.5%/+15.4%/0.7575/0.8828 only in Plan.md (historical review documentation)
+- All submission docs use canonical multi-seed values
+- Encoder ablation table preserved (scratch/single-seed ablation is correctly labeled)
+
+## Canonical Reference (Results.md Table 1):
+| Task | 10% Labels | Improvement |
+|------|------------|-------------|
+| Cascade IEEE-24 | 0.773→0.826 | +6.8% |
+| Power Flow | 0.0149→0.0106 | +29.1% |
+| Line Flow | 0.0084→0.0062 | +26.4% |
+
+**STATUS: ALL PR27 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# Peer Review 28 Resolution Status: COMPLETE
+
+## Summary
+
+Robustness results single-seed disclosure completed. All documents now clearly indicate that OOD robustness results (+22% at 1.3× load) are preliminary single-seed results.
+
+### Issue Addressed:
+
+- **Robustness Single-Seed Disclosure** - FIXED
+  - Problem: +22% SSL advantage at 1.3× load was presented without disclosing single-seed limitation
+  - Fix: Added "(single-seed, preliminary)" to all robustness mentions
+  - Fix: Updated ModelArchitecture.md section header with explicit disclosure note
+
+## Files Modified:
+1. Paper/Results.md (lines 22, 283) - Added "(single-seed, preliminary)" clarification
+2. Paper/ModelArchitecture.md (lines 792-794) - Section header updated with disclosure
+3. Paper/Submission_Package.md (lines 64, 366, 603) - Updated all robustness mentions
+4. Paper/Progress_Report.md (lines 25, 193, 335) - Updated all robustness mentions
+
+## Pre-existing Clarifications Verified:
+- Submission_Package.md line 206: Already had single-seed disclosure
+- Progress_Report.md line 289: Already had single-seed disclosure
+
+## Robustness Results Context:
+- **Results are preliminary:** Single representative seed (seed=42)
+- **Best checkpoint used:** From multi-seed validation
+- **Trend indication:** +22% advantage suggests SSL improves OOD generalization
+- **Future work:** Multi-seed robustness validation planned
+
+**STATUS: ALL PR28 ISSUES RESOLVED - PAPER SUBMISSION-READY**
+
+---
+
+# PR29 Resolution Status
+
+## Issue: Statistical Significance Testing
+
+**Problem:** Main claims required formal statistical hypothesis testing beyond mean ± std reporting.
+
+## Solution Applied (December 16, 2025)
+
+### Statistical Tests Computed
+
+Using Welch's t-test (unequal variance) and Cohen's d effect size:
+
+| Comparison | p-value | Cohen's d | Significant? |
+|------------|---------|-----------|--------------|
+| Cascade IEEE-24 | 0.0013 | 3.08 | Yes (p < 0.01) |
+| Cascade IEEE-118 | 0.0063 | 3.13 | Yes (p < 0.01) |
+| Power Flow | 0.000001 | 10.50 | Yes (p < 0.001) |
+| Line Flow | 0.000006 | 8.58 | Yes (p < 0.001) |
+
+### Files Created/Modified
+
+1. **Paper/Statistical_Tests.md** (NEW) - Full methodology, per-seed data, analysis
+2. **Paper/Results.md** - Added significance summary after main table
+3. **Paper/Progress_Report.md** - Added Appendix S documenting PR29 fixes
+
+### Key Findings
+
+- All SSL improvements statistically significant (p < 0.01)
+- All effect sizes large (Cohen's d > 3.0)
+- Statistical rigor meets publication standards
+
+**STATUS: ALL PR29 ISSUES RESOLVED - STATISTICAL SIGNIFICANCE ESTABLISHED**

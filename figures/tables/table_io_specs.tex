@@ -1,0 +1,15 @@
+\begin{table}[t]
+\caption{Per-Task Input/Output Specification}
+\label{tab:io}
+\centering
+\small
+\begin{tabular}{lll}
+\toprule
+\textbf{Task} & \textbf{Edge Inputs} & \textbf{Targets} \\
+\midrule
+Power Flow & $[X, \text{rating}]$ & $V_{\text{mag}}$ (nodes) \\
+Line Flow & $[X, \text{rating}]$ & $[P_{ij}, Q_{ij}]$ (edges) \\
+Cascade & $[P_{ij}, Q_{ij}, X, \text{rating}]$ & Binary (graph) \\
+\bottomrule
+\end{tabular}
+\end{table}
