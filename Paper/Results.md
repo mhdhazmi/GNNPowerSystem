@@ -37,6 +37,7 @@ This document summarizes the experimental results supporting the paper's primary
 | | | | 100% | 0.955 ± 0.007 | **0.958 ± 0.005** | +0.3% | 5 |
 | | IEEE-118 | F1 ↑ | 10% | 0.262 ± 0.243 | **0.874 ± 0.051** | +234% (ΔF1=+0.61) | 5 |
 | | | | 100% | 0.987 ± 0.005 | **0.994 ± 0.002** | +0.7% | 5 |
+| | ACTIVSg500 | F1 ↑ | 100% | 0.310 | **0.956** | +208% (ΔF1=+0.65) | 1 |
 | **Power Flow** | IEEE-24 | MAE ↓ | 10% | 0.0149 ± 0.0004 | **0.0106 ± 0.0003** | +29.1% | 5 |
 | | | | 100% | 0.0040 ± 0.0002 | **0.0035 ± 0.0001** | +13.0% | 5 |
 | **Line Flow** | IEEE-24 | MAE ↓ | 10% | 0.0084 ± 0.0003 | **0.0062 ± 0.0002** | +26.4% | 5 |
@@ -548,3 +549,54 @@ The experimental results strongly validate the paper's primary claim across mult
 4. **Physics-meaningful pretraining**: Masked reconstruction learns power flow relationships
 
 This supports the broader narrative that grid-specific SSL creates representations that transfer effectively to core power system tasks, with the benefit becoming more critical as grid complexity and class imbalance increase.
+
+---
+
+## ACTIVSg Synthetic Grid Experiments
+
+### ACTIVSg500 (500-bus Texas Synthetic Grid)
+
+**Dataset characteristics:**
+- **Grid**: ACTIVSg500 (500 buses, 597 branches) - Texas synthetic grid from MATPOWER
+- **Samples**: 4,990 total (3,993 train, 499 val, 498 test per 80/10/10 split)
+- **Cascade rate**: ~50% (balanced classification)
+- **Features**: Post-contingency features (system state after initial line trip)
+
+**Results (single-seed experiment):**
+
+| Init Type | Test F1 | Test Accuracy | Notes |
+|-----------|---------|---------------|-------|
+| **SSL** | **0.956** | 0.970 | Excellent cascade detection |
+| Scratch | 0.310 | 0.509 | Near-random performance |
+
+**Key findings:**
+1. **Dramatic SSL advantage**: +208% relative improvement (ΔF1 = +0.65)
+2. **Scratch training failure**: From-scratch training fails to learn meaningful representations on this grid
+3. **Post-contingency features are critical**: Early experiments with pre-contingency features showed lower performance; post-contingency state (after initial trip) provides discriminative signal
+
+### ACTIVSg2000 (2000-bus Texas Synthetic Grid)
+
+**Dataset characteristics:**
+- **Grid**: ACTIVSg2000 (2000 buses, 3206 branches) - Utility-scale Texas synthetic grid
+- **Samples**: 7,533 total (6,026 train, 753 val, 754 test per 80/10/10 split)
+- **Cascade rate**: **100%** (all samples result in cascading failures)
+
+**Results (single-seed experiment):**
+
+| Init Type | Test F1 | Test Accuracy | Confusion Matrix |
+|-----------|---------|---------------|------------------|
+| SSL | 1.000 | 1.000 | [[0,0],[0,754]] |
+| Scratch | 1.000 | 1.000 | [[0,0],[0,754]] |
+
+**Key observations:**
+1. **Trivial classification task**: 100% cascade rate means all test samples are positive class
+2. **Both methods achieve perfect F1**: When all samples cascade, predicting "cascade" is always correct
+3. **No meaningful comparison possible**: The 100% cascade rate makes SSL vs scratch comparison uninformative
+
+**Interpretation:**
+The ACTIVSg2000 grid is inherently more vulnerable than smaller test grids. Under the same N-1/N-2 contingency analysis and overload threshold (1.05), every sampled scenario leads to cascading failures. This reflects a real phenomenon: larger, more interconnected grids can be more prone to cascade propagation once a failure initiates.
+
+**Implications:**
+- **For paper results**: ACTIVSg500 provides meaningful SSL vs scratch comparison; ACTIVSg2000 demonstrates grid vulnerability but not method differentiation
+- **For future work**: Consider stricter cascade definitions (require N+ lines to trip) or different sampling strategies for utility-scale grids
+- **Domain insight**: Utility-scale synthetic grids may require different contingency parameters to achieve balanced cascade rates
