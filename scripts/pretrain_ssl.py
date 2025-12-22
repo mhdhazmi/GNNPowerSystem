@@ -142,6 +142,17 @@ def main():
     parser.add_argument("--mask_ratio", type=float, default=0.15)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--output_dir", type=str, default="outputs")
+    parser.add_argument(
+        "--use_projection_head",
+        action="store_true",
+        help="Use projection head (discarded during transfer) to mitigate representation lock-in",
+    )
+    parser.add_argument(
+        "--projection_dim",
+        type=int,
+        default=128,
+        help="Output dimension of projection head",
+    )
 
     args = parser.parse_args()
 
@@ -150,7 +161,8 @@ def main():
     device = get_device()
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_dir = Path(args.output_dir) / f"ssl_{args.ssl_type}_{args.grid}_{timestamp}"
+    proj_suffix = "_proj" if args.use_projection_head else ""
+    output_dir = Path(args.output_dir) / f"ssl_{args.ssl_type}{proj_suffix}_{args.grid}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60)
@@ -159,6 +171,9 @@ def main():
     print(f"Grid: {args.grid}")
     print(f"SSL Type: {args.ssl_type}")
     print(f"Mask Ratio: {args.mask_ratio}")
+    print(f"Projection Head: {args.use_projection_head}")
+    if args.use_projection_head:
+        print(f"Projection Dim: {args.projection_dim}")
     print(f"Device: {device}")
     print(f"Output: {output_dir}")
     print("=" * 60)
@@ -216,6 +231,8 @@ def main():
             num_layers=args.num_layers,
             node_mask_ratio=args.mask_ratio,
             edge_mask_ratio=args.mask_ratio,
+            use_projection_head=args.use_projection_head,
+            projection_dim=args.projection_dim,
         ).to(device)
 
     num_params = sum(p.numel() for p in model.parameters())

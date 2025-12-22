@@ -256,6 +256,38 @@ Combined & \textbf{0.895 $\pm$ 0.009} & \textbf{0.946 $\pm$ 0.014} & \textbf{0.9
 \label{fig:ablation}
 \end{figure}
 
+\textbf{GraphMAE baseline comparison:} To validate that physics-guided pretext tasks outperform generic graph {SSL} methods, we compare against GraphMAE~\cite{hou2022graphmae}---a state-of-the-art approach using masked node reconstruction with scaled cosine error loss but without domain-specific masking. Table~\ref{tab:graphmae} reveals that physics-guided {SSL} dramatically outperforms GraphMAE in low-label regimes: +35.5\% F1 on {IEEE} 24-bus and complete failure recovery on {IEEE} 118-bus where GraphMAE collapses to predicting all negative (F1 = 0.0). This demonstrates that domain-specific pretext tasks---masking power injections ($P_{\text{net}}, S_{\text{net}}$) and line parameters ($x_{ij}$, rating)---are essential for effective transfer to power system tasks. At 100\% labels, both methods achieve near-perfect performance, confirming our advantage is specifically in data-scarce scenarios.
+
+\begin{table}[t]
+\centering
+\caption{GraphMAE vs Physics-Guided SSL: cascade prediction F1-score}
+\label{tab:graphmae}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Grid} & \textbf{Method} & \textbf{10\% Labels} & \textbf{100\% Labels} \\
+\midrule
+\multirow{3}{*}{IEEE-24} & GraphMAE & 0.667 & 0.964 \\
+& Physics-SSL (Ours) & \textbf{0.903} & \textbf{0.984} \\
+& $\Delta$ & \textbf{+35.5\%} & +2.1\% \\
+\midrule
+\multirow{3}{*}{IEEE-118} & GraphMAE & 0.000$^\dagger$ & 0.998 \\
+& Physics-SSL (Ours) & \textbf{0.715} & 0.996 \\
+& $\Delta$ & \textbf{$\infty$} & $-$0.2\% \\
+\bottomrule
+\multicolumn{4}{l}{\footnotesize $^\dagger$GraphMAE predicts all negative under class imbalance.} \\
+\end{tabular}
+\end{table}
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/graphmae_comparison.pdf}
+\caption{GraphMAE vs Physics-SSL comparison: physics-guided pretext tasks dramatically outperform generic SSL at 10\% labels (+35.5\% on IEEE-24; GraphMAE fails entirely on IEEE-118).}
+\label{fig:graphmae}
+\end{figure}
+
+\textbf{Projection head ablation:} Following SimCLR/BYOL, we tested whether adding a projection head between the encoder and reconstruction heads during {SSL} pretraining could mitigate ``representation lock-in'' (where pretrained representations become too specialized for the pretext task). Results on {IEEE} 118-bus show that projection heads actually \textit{hurt} low-label performance: F1 = 0.546 with projection head vs.\ 0.715 without ($-$23.5\%). At 100\% labels, both configurations achieve F1 $>$ 0.996 with negligible difference. This suggests that physics-guided pretext tasks already learn transferable representations without requiring a projection head buffer, and that the representation lock-in phenomenon from computer vision {SSL} does not manifest in power system graphs.
+
 \subsection{Explainability Evaluation}
 \label{subsec:explainability}
 
@@ -312,6 +344,34 @@ $\Delta$ (SSL $-$ Scratch) & +0.006 & +0.009 & +0.012 & \textbf{+0.030} \\
 \includegraphics[width=\columnwidth]{figures/robustness_curves.pdf}
 \caption{Cascade prediction F1-score under load stress (1.0--1.3$\times$ nominal, 5-seed mean $\pm$ std): SSL maintains consistent advantage with lower variance across all loading conditions.}
 \label{fig:robustness}
+\end{figure}
+
+\textbf{Extended perturbation analysis:} We evaluate additional out-of-distribution scenarios including topology perturbations (random edge dropout simulating line outages) and measurement noise (Gaussian noise on node features simulating SCADA sensor uncertainty). Table~\ref{tab:robustness_extended} summarizes results on {IEEE} 118-bus across perturbation types.
+
+\begin{table}[t]
+\centering
+\caption{Extended robustness evaluation on IEEE 118-bus: F1-score under diverse perturbations (mean over 5 seeds)}
+\label{tab:robustness_extended}
+\small
+\begin{tabular}{lccc}
+\toprule
+\textbf{Perturbation} & \textbf{Scratch} & \textbf{SSL} & \textbf{$\Delta$} \\
+\midrule
+Nominal (no perturbation) & 0.987 & 0.994 & +0.007 \\
+Load scaling 1.3$\times$ & 0.958 & \textbf{0.985} & +0.027 \\
+Measurement noise ($\sigma$=0.1) & 0.969 & \textbf{0.989} & +0.020 \\
+Topology dropout (10\% edges) & 0.180 & 0.160 & $-$0.020 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+For load stress and measurement noise, {SSL} demonstrates consistent advantages (+2.0--2.7\% F1), indicating that physics-guided pretraining yields representations that generalize better across operational uncertainty. However, both methods degrade severely under topology perturbations (F1 $<$ 0.2 at 10\% edge dropout), revealing a fundamental limitation: {GNN} message passing relies on the graph structure observed during training, and substantial topology changes require retraining or architecture modifications such as topology-aware attention mechanisms. Figure~\ref{fig:robustness_extended} shows degradation curves across perturbation intensities.
+
+\begin{figure}[t]
+\centering
+\includegraphics[width=\columnwidth]{figures/robustness_degradation_curves.pdf}
+\caption{Robustness degradation under three perturbation types (IEEE 118-bus): SSL maintains advantages under load stress and measurement noise, but both methods fail catastrophically under topology dropout.}
+\label{fig:robustness_extended}
 \end{figure}
 
 \subsection{Scalability to Utility-Scale Grids: ACTIVSg500}

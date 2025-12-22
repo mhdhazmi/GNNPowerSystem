@@ -284,11 +284,41 @@ class MaskedEdgeReconstruction(nn.Module):
         return self.encoder.state_dict()
 
 
+class ProjectionHead(nn.Module):
+    """
+    MLP projection head for SSL (discarded after pretraining).
+
+    Following SimCLR/BYOL, the projection head absorbs task-specific
+    information during pretraining, allowing the encoder to learn more
+    generalizable representations. The projection head is discarded
+    when transferring to downstream tasks.
+    """
+
+    def __init__(self, input_dim: int, hidden_dim: int = 256, output_dim: int = 128):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(input_dim, hidden_dim),
+            nn.BatchNorm1d(hidden_dim),
+            nn.ReLU(),
+            nn.Linear(hidden_dim, output_dim),
+        )
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return self.net(x)
+
+
 class CombinedSSL(nn.Module):
     """
     Combined SSL model with both node and edge reconstruction.
 
     Jointly optimizes both objectives for richer representations.
+
+    Args:
+        use_projection_head: If True, adds a projection head between encoder
+            and reconstruction heads. The projection head is discarded during
+            transfer, which can help mitigate "representation lock-in" at
+            high label fractions.
+        projection_dim: Output dimension of projection head (default 128)
     """
 
     def __init__(
@@ -302,15 +332,19 @@ class CombinedSSL(nn.Module):
         edge_mask_ratio: float = 0.15,
         node_weight: float = 1.0,
         edge_weight: float = 1.0,
+        use_projection_head: bool = False,
+        projection_dim: int = 128,
     ):
         super().__init__()
 
         self.node_in_dim = node_in_dim
         self.edge_in_dim = edge_in_dim
+        self.hidden_dim = hidden_dim
         self.node_mask_ratio = node_mask_ratio
         self.edge_mask_ratio = edge_mask_ratio
         self.node_weight = node_weight
         self.edge_weight = edge_weight
+        self.use_projection_head = use_projection_head
 
         # Learnable mask tokens
         self.node_mask_token = nn.Parameter(torch.zeros(node_in_dim))
@@ -327,16 +361,28 @@ class CombinedSSL(nn.Module):
             dropout=dropout,
         )
 
-        # Reconstruction heads
+        # Optional projection head (discarded during transfer)
+        if use_projection_head:
+            self.projection = ProjectionHead(
+                input_dim=hidden_dim,
+                hidden_dim=hidden_dim * 2,
+                output_dim=projection_dim,
+            )
+            head_input_dim = projection_dim
+        else:
+            self.projection = None
+            head_input_dim = hidden_dim
+
+        # Reconstruction heads (operate on projection output if enabled)
         self.node_head = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim),
+            nn.Linear(head_input_dim, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, node_in_dim),
         )
 
         self.edge_head = nn.Sequential(
-            nn.Linear(hidden_dim * 2, hidden_dim),
+            nn.Linear(head_input_dim * 2, hidden_dim),
             nn.ReLU(),
             nn.Dropout(dropout),
             nn.Linear(hidden_dim, edge_in_dim),
@@ -375,12 +421,18 @@ class CombinedSSL(nn.Module):
         # Encode
         node_emb = self.encoder(masked_x, edge_index, masked_edge_attr)
 
-        # Reconstruct nodes
-        node_reconstructed = self.node_head(node_emb)
+        # Apply projection head if enabled
+        if self.projection is not None:
+            proj_emb = self.projection(node_emb)
+        else:
+            proj_emb = node_emb
 
-        # Reconstruct edges
+        # Reconstruct nodes (from projected embeddings)
+        node_reconstructed = self.node_head(proj_emb)
+
+        # Reconstruct edges (from projected embeddings)
         src, dst = edge_index
-        edge_emb = torch.cat([node_emb[src], node_emb[dst]], dim=1)
+        edge_emb = torch.cat([proj_emb[src], proj_emb[dst]], dim=1)
         edge_reconstructed = self.edge_head(edge_emb)
 
         # Compute losses

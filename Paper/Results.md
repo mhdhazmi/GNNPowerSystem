@@ -505,6 +505,100 @@ Power Flow predictions match physics-based solver outputs with high fidelity:
 
 ---
 
+## GraphMAE Baseline Comparison
+
+To validate that physics-guided pretext tasks (masked power injection, masked line parameters) outperform generic graph SSL methods, we compare against GraphMAE—a state-of-the-art graph self-supervised learning approach that uses masked node reconstruction with scaled cosine error loss.
+
+### GraphMAE Implementation
+
+GraphMAE baseline uses:
+- **Encoder**: Standard GIN layers (no physics-guided weighting)
+- **Pretext task**: Random node feature masking (15% mask ratio)
+- **Loss**: Scaled cosine error (γ=2.0) instead of MSE
+- **Learnable mask token**: Replaces masked features during encoding
+
+Key difference from our physics-guided SSL:
+- **Ours**: Masks power-specific features (P_net, S_net, X, rating) with domain knowledge
+- **GraphMAE**: Masks arbitrary features without physics meaning
+
+### Results: GraphMAE vs Physics-Guided SSL
+
+**IEEE 24-bus (5.7% cascade rate):**
+
+| Method | 10% Labels F1 | 100% Labels F1 | PR-AUC (10%) |
+|--------|--------------|----------------|--------------|
+| GraphMAE | 0.667 | 0.964 | 0.893 |
+| **Physics-SSL (Ours)** | **0.903** | **0.984** | **0.951** |
+| **Δ** | **+35.5%** | +2.1% | +6.5% |
+
+**IEEE 118-bus (5.7% cascade rate, severe class imbalance):**
+
+| Method | 10% Labels F1 | 100% Labels F1 | PR-AUC (10%) |
+|--------|--------------|----------------|--------------|
+| GraphMAE | 0.000 | 0.998 | N/A |
+| **Physics-SSL (Ours)** | **0.715** | 0.996 | **0.805** |
+| **Δ** | **∞** | -0.2% | — |
+
+### Key Findings
+
+1. **Physics-guided SSL dramatically outperforms GraphMAE at low labels**: +35.5% F1 on IEEE-24 and complete failure recovery on IEEE-118 (where GraphMAE predicts all negative).
+
+2. **GraphMAE fails under class imbalance**: On IEEE-118 with 5.7% positive rate and only 10% labels, generic GraphMAE cannot learn to predict the minority class (F1=0.0). Physics-guided SSL achieves F1=0.715.
+
+3. **Both methods converge with abundant labels**: At 100% labels, both approaches achieve near-perfect performance (~0.996-0.998 F1), confirming our method's advantage is specifically in data-scarce scenarios.
+
+4. **Domain-specific pretext tasks are necessary**: Masked power injection and line parameter reconstruction create representations that transfer better to power system tasks than generic masked reconstruction.
+
+### Implications
+
+These results directly address the question of whether generic graph SSL suffices for power systems. The answer is **no**—physics-guided pretext tasks provide substantial advantages, especially under the low-label and class-imbalanced conditions common in real-world power system applications.
+
+---
+
+## Projection Head Ablation
+
+Following SimCLR/BYOL approaches, we tested whether adding a projection head between the encoder and reconstruction heads during SSL pretraining could mitigate "representation lock-in" (where SSL-learned representations are too specialized for the pretext task and hurt downstream performance at high label fractions).
+
+### Hypothesis
+
+- **Theory**: Projection heads absorb task-specific information during pretraining, allowing the encoder to learn more generalizable representations
+- **Expected**: Projection head should be neutral at low labels and beneficial at high labels
+- **Tested on**: IEEE 118-bus cascade prediction
+
+### Projection Head SSL Configuration
+
+- **Pretraining**: CombinedSSL with projection head (hidden=256, output=128)
+- **Projection head discarded** after pretraining; only encoder transferred
+- **Same training configuration** as baseline SSL (100 epochs, focal loss)
+
+### Results: Projection Head vs Baseline SSL (IEEE 118)
+
+| Label Fraction | Baseline SSL F1 | Projection Head SSL F1 | Δ | Observation |
+|----------------|-----------------|------------------------|---|-------------|
+| **10%** | 0.715 | 0.546 | **-23.5%** | **Projection head HURTS** |
+| **50%** | 0.996 | 0.997 | +0.07% | Negligible difference |
+| **100%** | 0.996 | 0.999 | +0.32% | Slight improvement |
+
+### Key Findings
+
+1. **Projection head degrades low-label performance**: At 10% labels, the projection head variant shows significantly worse F1 (0.546 vs 0.715). This contradicts the expectation that projection heads should be neutral at low labels.
+
+2. **No meaningful benefit at high labels**: At 50% and 100% labels, both configurations achieve near-perfect performance (F1 > 0.996). The "representation lock-in" phenomenon observed in computer vision SSL does not manifest here.
+
+3. **Physics-guided encoder already learns transferable representations**: The lack of projection head benefit suggests that our physics-guided pretext tasks (masked injection and parameter reconstruction) naturally learn representations that transfer well without needing a projection head buffer.
+
+### Interpretation
+
+The "representation lock-in" problem that motivates projection heads in image SSL (SimCLR, BYOL) may not apply to power system graphs because:
+
+1. **Domain-specific pretext tasks**: Our SSL pretrains on power-specific features (P_net, S_net, X, rating), which are directly relevant to downstream cascade prediction
+2. **Physics-guided encoder**: Edge weighting by admittance creates intrinsically generalizable representations
+3. **Different representation geometry**: Power flow relationships may not create the same specialization patterns as image reconstruction
+
+**Recommendation**: Do not use projection heads for physics-guided SSL on power systems. The baseline approach achieves excellent transfer without added complexity.
+
+---
+
 ## Encoder Ablation Study
 
 Comparing encoder architectures (from scratch, no SSL pretraining):
