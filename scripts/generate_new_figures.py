@@ -49,7 +49,7 @@ def create_graphmae_comparison():
             '100%': {'GraphMAE': 0.964, 'Physics-SSL': 0.984},
         },
         'IEEE-118': {
-            '10%': {'GraphMAE': 0.000, 'Physics-SSL': 0.715},
+            '10%': {'GraphMAE': 0.000, 'Physics-SSL': 0.874},
             '100%': {'GraphMAE': 0.998, 'Physics-SSL': 0.996},
         },
     }

@@ -2,14 +2,21 @@
 """
 SSL Pretraining Script
 
-Pretrain a physics-guided encoder using masked reconstruction objectives.
+Pretrain a physics-guided encoder using self-supervised learning objectives.
+Supports both masking-based (node/edge/combined) and contrastive (graphcl/grace/infograph) methods.
+
 The pretrained encoder can then be transferred to downstream tasks
 (cascade prediction, PF, OPF) for improved performance, especially
 in low-label settings.
 
 Usage:
+    # Masking-based SSL
     python scripts/pretrain_ssl.py --grid ieee24 --epochs 50
     python scripts/pretrain_ssl.py --ssl_type combined --epochs 100
+
+    # Contrastive SSL
+    python scripts/pretrain_ssl.py --ssl_type graphcl --grid ieee24 --epochs 100
+    python scripts/pretrain_ssl.py --ssl_type grace --temperature 0.5 --aug_strength 0.2
 """
 
 import argparse
@@ -28,7 +35,16 @@ from torch_geometric.loader import DataLoader
 from tqdm import tqdm
 
 from src.data import PowerGraphDataset
-from src.models import CombinedSSL, MaskedEdgeReconstruction, MaskedNodeReconstruction
+from src.models import (
+    CombinedSSL,
+    MaskedEdgeReconstruction,
+    MaskedNodeReconstruction,
+    GraphCL,
+    GRACE,
+    InfoGraph,
+    create_augmentation,
+    Compose,
+)
 from src.utils import get_device, set_seed
 
 
@@ -130,8 +146,8 @@ def main():
         "--ssl_type",
         type=str,
         default="combined",
-        choices=["node", "edge", "combined"],
-        help="SSL objective type",
+        choices=["node", "edge", "combined", "graphcl", "grace", "infograph"],
+        help="SSL objective type: masking (node/edge/combined) or contrastive (graphcl/grace/infograph)",
     )
     parser.add_argument("--hidden_dim", type=int, default=128)
     parser.add_argument("--num_layers", type=int, default=4)
@@ -154,6 +170,36 @@ def main():
         help="Output dimension of projection head",
     )
 
+    # Contrastive-specific arguments
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=0.5,
+        help="Temperature for contrastive loss (NT-Xent)",
+    )
+    parser.add_argument(
+        "--aug1",
+        type=str,
+        default="edge_drop",
+        choices=["edge_drop", "node_mask", "feature_noise", "subgraph",
+                 "physics_edge_drop", "physics_node_mask", "identity"],
+        help="First augmentation for contrastive learning",
+    )
+    parser.add_argument(
+        "--aug2",
+        type=str,
+        default="node_mask",
+        choices=["edge_drop", "node_mask", "feature_noise", "subgraph",
+                 "physics_edge_drop", "physics_node_mask", "identity"],
+        help="Second augmentation for contrastive learning",
+    )
+    parser.add_argument(
+        "--aug_strength",
+        type=float,
+        default=0.2,
+        help="Augmentation strength (drop/mask ratio or noise std)",
+    )
+
     args = parser.parse_args()
 
     # Setup
@@ -165,15 +211,23 @@ def main():
     output_dir = Path(args.output_dir) / f"ssl_{args.ssl_type}{proj_suffix}_{args.grid}_{timestamp}"
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    is_contrastive = args.ssl_type in ["graphcl", "grace", "infograph"]
+
     print("=" * 60)
     print("SSL PRETRAINING")
     print("=" * 60)
     print(f"Grid: {args.grid}")
     print(f"SSL Type: {args.ssl_type}")
-    print(f"Mask Ratio: {args.mask_ratio}")
-    print(f"Projection Head: {args.use_projection_head}")
-    if args.use_projection_head:
-        print(f"Projection Dim: {args.projection_dim}")
+    if is_contrastive:
+        print(f"Method: Contrastive Learning")
+        print(f"Temperature: {args.temperature}")
+        print(f"Augmentations: {args.aug1} + {args.aug2} (strength={args.aug_strength})")
+    else:
+        print(f"Method: Masking-based")
+        print(f"Mask Ratio: {args.mask_ratio}")
+        print(f"Projection Head: {args.use_projection_head}")
+        if args.use_projection_head:
+            print(f"Projection Dim: {args.projection_dim}")
     print(f"Device: {device}")
     print(f"Output: {output_dir}")
     print("=" * 60)
@@ -223,7 +277,7 @@ def main():
             num_layers=args.num_layers,
             mask_ratio=args.mask_ratio,
         ).to(device)
-    else:  # combined
+    elif args.ssl_type == "combined":
         model = CombinedSSL(
             node_in_dim=node_in_dim,
             edge_in_dim=edge_in_dim,
@@ -234,6 +288,43 @@ def main():
             use_projection_head=args.use_projection_head,
             projection_dim=args.projection_dim,
         ).to(device)
+    elif args.ssl_type == "graphcl":
+        # Create augmentations for GraphCL
+        aug1 = create_augmentation(args.aug1, args.aug_strength)
+        aug2 = create_augmentation(args.aug2, args.aug_strength)
+        model = GraphCL(
+            node_in_dim=node_in_dim,
+            edge_in_dim=edge_in_dim,
+            hidden_dim=args.hidden_dim,
+            proj_dim=args.projection_dim,
+            num_layers=args.num_layers,
+            temperature=args.temperature,
+            augmentation_1=aug1,
+            augmentation_2=aug2,
+        ).to(device)
+    elif args.ssl_type == "grace":
+        # Create augmentations for GRACE
+        aug1 = create_augmentation(args.aug1, args.aug_strength)
+        aug2 = create_augmentation(args.aug2, args.aug_strength)
+        model = GRACE(
+            node_in_dim=node_in_dim,
+            edge_in_dim=edge_in_dim,
+            hidden_dim=args.hidden_dim,
+            proj_dim=args.projection_dim,
+            num_layers=args.num_layers,
+            temperature=args.temperature,
+            augmentation_1=aug1,
+            augmentation_2=aug2,
+        ).to(device)
+    elif args.ssl_type == "infograph":
+        model = InfoGraph(
+            node_in_dim=node_in_dim,
+            edge_in_dim=edge_in_dim,
+            hidden_dim=args.hidden_dim,
+            num_layers=args.num_layers,
+        ).to(device)
+    else:
+        raise ValueError(f"Unknown ssl_type: {args.ssl_type}")
 
     num_params = sum(p.numel() for p in model.parameters())
     print(f"\nModel parameters: {num_params:,}")
