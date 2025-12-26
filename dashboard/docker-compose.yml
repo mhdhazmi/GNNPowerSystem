@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    environment:
+      - VITE_API_URL=http://localhost:8000
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/app/data:ro
+      - ../outputs:/app/outputs:ro
+      - ../data:/app/power_data:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+
+networks:
+  default:
+    name: physics-ssl-dashboard

@@ -1,0 +1,13 @@
+{
+  "ieee24": {
+    "10%": {"graphmae": 0.667, "physics_ssl": 0.903},
+    "100%": {"graphmae": 0.964, "physics_ssl": 0.984}
+  },
+  "ieee118": {
+    "10%": {"graphmae": 0.000, "physics_ssl": 0.874},
+    "100%": {"graphmae": 0.998, "physics_ssl": 0.996}
+  },
+  "notes": {
+    "ieee118_10pct": "GraphMAE predicts all negatives under class imbalance without explicit class weighting. Physics-SSL is robust out-of-box."
+  }
+}

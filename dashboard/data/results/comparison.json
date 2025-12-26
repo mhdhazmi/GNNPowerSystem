@@ -1,0 +1,38 @@
+{
+  "cascade": {
+    "ieee24": {
+      "10%": {"scratch": 0.667, "ssl": 0.903, "scratch_std": 0.089, "ssl_std": 0.051},
+      "50%": {"scratch": 0.981, "ssl": 0.990, "scratch_std": 0.012, "ssl_std": 0.006},
+      "100%": {"scratch": 0.984, "ssl": 0.991, "scratch_std": 0.008, "ssl_std": 0.004}
+    },
+    "ieee118": {
+      "10%": {"scratch": 0.715, "ssl": 0.874, "scratch_std": 0.156, "ssl_std": 0.051},
+      "50%": {"scratch": 0.996, "ssl": 0.996, "scratch_std": 0.002, "ssl_std": 0.001},
+      "100%": {"scratch": 0.996, "ssl": 0.996, "scratch_std": 0.001, "ssl_std": 0.001}
+    }
+  },
+  "powerflow": {
+    "ieee24": {
+      "10%": {"scratch": 0.0142, "ssl": 0.0098, "scratch_std": 0.003, "ssl_std": 0.002},
+      "50%": {"scratch": 0.0067, "ssl": 0.0052, "scratch_std": 0.001, "ssl_std": 0.001},
+      "100%": {"scratch": 0.0045, "ssl": 0.0038, "scratch_std": 0.001, "ssl_std": 0.001}
+    },
+    "ieee118": {
+      "10%": {"scratch": 0.0189, "ssl": 0.0124, "scratch_std": 0.004, "ssl_std": 0.002},
+      "50%": {"scratch": 0.0082, "ssl": 0.0061, "scratch_std": 0.001, "ssl_std": 0.001},
+      "100%": {"scratch": 0.0054, "ssl": 0.0042, "scratch_std": 0.001, "ssl_std": 0.001}
+    }
+  },
+  "lineflow": {
+    "ieee24": {
+      "10%": {"scratch": 0.0234, "ssl": 0.0156, "scratch_std": 0.005, "ssl_std": 0.003},
+      "50%": {"scratch": 0.0098, "ssl": 0.0072, "scratch_std": 0.002, "ssl_std": 0.001},
+      "100%": {"scratch": 0.0065, "ssl": 0.0048, "scratch_std": 0.001, "ssl_std": 0.001}
+    },
+    "ieee118": {
+      "10%": {"scratch": 0.0312, "ssl": 0.0198, "scratch_std": 0.006, "ssl_std": 0.003},
+      "50%": {"scratch": 0.0124, "ssl": 0.0089, "scratch_std": 0.002, "ssl_std": 0.001},
+      "100%": {"scratch": 0.0078, "ssl": 0.0056, "scratch_std": 0.001, "ssl_std": 0.001}
+    }
+  }
+}

@@ -1,0 +1,80 @@
+@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@theme {
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+
+  --color-power-grid: #3498DB;
+  --color-power-ssl: #2ECC71;
+  --color-power-scratch: #E74C3C;
+  --color-power-graphmae: #F39C12;
+
+  --font-family-sans: 'Inter', system-ui, sans-serif;
+  --font-family-mono: 'JetBrains Mono', monospace;
+}
+
+/* Component classes using @utility or plain CSS */
+.card {
+  @apply bg-white dark:bg-gray-800 rounded-lg shadow-md p-6;
+}
+
+.btn-primary {
+  @apply bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-lg transition-colors;
+}
+
+.btn-secondary {
+  @apply bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 text-gray-800 dark:text-gray-200 font-medium py-2 px-4 rounded-lg transition-colors;
+}
+
+.metric-card {
+  @apply bg-gradient-to-br from-blue-500 to-blue-700 text-white rounded-xl p-6 shadow-lg;
+}
+
+.nav-link {
+  @apply flex items-center gap-3 px-4 py-3 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-colors;
+}
+
+.nav-link.active {
+  @apply bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 font-medium;
+}
+
+/* D3 Chart Styles */
+.chart-container {
+  @apply w-full h-full;
+}
+
+/* Network Graph Styles */
+/* Note: Hover effects handled by D3 in NetworkGraph.jsx, not CSS */
+
+.network-edge {
+  stroke-opacity: 0.6;
+  transition: stroke-opacity 0.2s;
+}
+
+.network-edge:hover {
+  stroke-opacity: 1;
+}
+
+/* Tooltip */
+.tooltip {
+  @apply absolute bg-gray-900 text-white text-sm px-3 py-2 rounded-lg shadow-lg pointer-events-none z-50;
+}
+
+/* Animation keyframes */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.8); }
+}
+
+.animate-pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}

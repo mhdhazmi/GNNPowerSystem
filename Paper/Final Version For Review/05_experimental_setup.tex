@@ -130,6 +130,8 @@ We compare against multiple baseline categories to contextualize {GNN} performan
 
 Table~\ref{tab:feature_comparison} clarifies that the GNN and ML baselines receive identical raw features for cascade prediction. The baselines additionally use hand-crafted derived features (loading ratios, percentiles, overload counts) that encode domain knowledge about cascade risk. The GNN must learn these relationships from raw features, making its superior performance more notable.
 
+\textbf{GraphMAE Baseline:} To compare against a state-of-the-art generic graph SSL method, we implement GraphMAE~\cite{hou2022graphmae} with identical encoder architecture (4 layers, 128 hidden dimensions) and training protocol (50 pretraining epochs, AdamW optimizer, $10^{-3}$ learning rate). GraphMAE uses scaled cosine error loss with masking ratio 50\% and re-mask decoding. The key difference is that GraphMAE performs generic node feature reconstruction without domain-specific masking targets, whereas our method specifically masks power injections and line parameters.
+
 \textbf{Heuristic Baselines for Cascade Prediction:} We evaluate three graph-level threshold rules:
 \begin{itemize}[itemsep=1pt]
     \item \textbf{Max Loading:} Predict cascade if $\max_{(i,j) \in \mathcal{E}} (|S_{ij}|/S_{\max,ij}) > \tau$
